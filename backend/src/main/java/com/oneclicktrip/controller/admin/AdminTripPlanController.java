@@ -51,17 +51,15 @@ public class AdminTripPlanController {
         Set<Long> userIds = planPage.getRecords().stream().map(TripPlan::getUserId).filter(Objects::nonNull).collect(Collectors.toSet());
         Set<Long> cityIds = planPage.getRecords().stream().map(TripPlan::getCityId).filter(Objects::nonNull).collect(Collectors.toSet());
 
-        Map<Long, String> userNames = new HashMap<>();
-        Map<Long, String> cityNames = new HashMap<>();
+        final Map<Long, String> userNames = userIds.isEmpty()
+                ? Collections.emptyMap()
+                : userMapper.selectBatchIds(userIds).stream()
+                        .collect(Collectors.toMap(User::getId, u -> u.getNickname() != null ? u.getNickname() : u.getUsername()));
 
-        if (!userIds.isEmpty()) {
-            userNames = userMapper.selectBatchIds(userIds).stream()
-                    .collect(Collectors.toMap(User::getId, u -> u.getNickname() != null ? u.getNickname() : u.getUsername()));
-        }
-        if (!cityIds.isEmpty()) {
-            cityNames = cityMapper.selectBatchIds(cityIds).stream()
-                    .collect(Collectors.toMap(City::getId, City::getName));
-        }
+        final Map<Long, String> cityNames = cityIds.isEmpty()
+                ? Collections.emptyMap()
+                : cityMapper.selectBatchIds(cityIds).stream()
+                        .collect(Collectors.toMap(City::getId, City::getName));
 
         // 转换结果，附加用户名和城市名
         List<Map<String, Object>> records = planPage.getRecords().stream().map(plan -> {
@@ -123,7 +121,7 @@ public class AdminTripPlanController {
         for (TripPlanDay day : days) {
             List<TripPlanItem> items = itemMapper.selectList(
                     Wrappers.<TripPlanItem>lambdaQuery()
-                            .eq(TripPlanItem::getDayId, day.getId())
+                            .eq(TripPlanItem::getPlanDayId, day.getId())
                             .orderByAsc(TripPlanItem::getSortOrder));
 
             Map<String, Object> dayMap = new LinkedHashMap<>();
