@@ -1,5 +1,6 @@
 const TOKEN_KEY = 'oneclick_trip_token'
 
+// token 保存在 localStorage，刷新页面后仍然能保持登录态。
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY)
 }
@@ -13,12 +14,14 @@ export function setToken(token) {
 }
 
 export async function apiRequest(path, options = {}) {
+  // 所有接口统一走这个函数：自动加 JSON 请求头、自动带登录 token、统一处理错误。
   const headers = {
     'Content-Type': 'application/json',
     ...(options.headers || {})
   }
   const token = getToken()
   if (token) {
+    // 后端 JwtAuthenticationFilter 会读取这个请求头。
     headers.Authorization = `Bearer ${token}`
   }
 
@@ -30,9 +33,11 @@ export async function apiRequest(path, options = {}) {
   if (!response.ok || body?.success === false) {
     throw new Error(body?.message || `请求失败：${response.status}`)
   }
+  // 后端统一返回 { success, message, data }，前端页面通常只需要 data。
   return body?.data
 }
 
+// 页面里只调用 api.login、api.cities 这种语义化方法，不直接写 fetch。
 export const api = {
   login(payload) {
     return apiRequest('/api/auth/login', {

@@ -23,6 +23,8 @@ public class TripPlanController {
 
     @PostMapping("/generate")
     public ApiResponse<TripPlanResponse> generate(@Valid @RequestBody GenerateTripPlanRequest request) {
+        // 当前是规则版生成：根据数据库里的景点、美食、酒店拼出基础行程。
+        // 以后接入 AI 后，可以在 Service 内换成“规则初稿 + AI 优化”。
         return ApiResponse.ok("已生成规则版行程", tripPlanService.generate(request));
     }
 
@@ -31,4 +33,3 @@ public class TripPlanController {
         return ApiResponse.ok(tripPlanService.getPlan(id));
     }
 }
-

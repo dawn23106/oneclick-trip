@@ -1,3 +1,4 @@
+-- 用户表：保存登录账号、昵称、头像、角色和状态。
 CREATE TABLE IF NOT EXISTS sys_user (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   username VARCHAR(64) NOT NULL UNIQUE,
@@ -12,6 +13,7 @@ CREATE TABLE IF NOT EXISTS sys_user (
   update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 兼容旧数据库：如果之前已经创建过 sys_user 但没有 avatar_url，就补上头像字段。
 SET @avatar_column_sql = (
   SELECT IF(
     COUNT(*) = 0,
@@ -27,6 +29,7 @@ PREPARE avatar_column_stmt FROM @avatar_column_sql;
 EXECUTE avatar_column_stmt;
 DEALLOCATE PREPARE avatar_column_stmt;
 
+-- 城市资料：目的地列表的基础表。
 CREATE TABLE IF NOT EXISTS city (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   name VARCHAR(64) NOT NULL,
@@ -41,6 +44,7 @@ CREATE TABLE IF NOT EXISTS city (
   update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 景点资料：景点攻略页和规则版行程生成都会读取。
 CREATE TABLE IF NOT EXISTS scenic_spot (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   city_id BIGINT NOT NULL,
@@ -61,6 +65,7 @@ CREATE TABLE IF NOT EXISTS scenic_spot (
   INDEX idx_spot_city (city_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 美食资料：美食页和行程中的午餐/晚餐安排会读取。
 CREATE TABLE IF NOT EXISTS food (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   city_id BIGINT NOT NULL,
@@ -78,6 +83,7 @@ CREATE TABLE IF NOT EXISTS food (
   INDEX idx_food_city (city_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 酒店资料：规则版行程会根据预算选择酒店。
 CREATE TABLE IF NOT EXISTS hotel (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   city_id BIGINT NOT NULL,
@@ -95,6 +101,7 @@ CREATE TABLE IF NOT EXISTS hotel (
   INDEX idx_hotel_city (city_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 行程模板：首页精选模板和模板列表使用。
 CREATE TABLE IF NOT EXISTS trip_template (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   city_id BIGINT NOT NULL,
@@ -111,6 +118,7 @@ CREATE TABLE IF NOT EXISTS trip_template (
   INDEX idx_template_city (city_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 行程主表：保存一次生成出来的整体行程。
 CREATE TABLE IF NOT EXISTS trip_plan (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   user_id BIGINT,
@@ -133,6 +141,7 @@ CREATE TABLE IF NOT EXISTS trip_plan (
   INDEX idx_plan_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 行程天表：一个 trip_plan 下面会有多天。
 CREATE TABLE IF NOT EXISTS trip_plan_day (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   plan_id BIGINT NOT NULL,
@@ -145,6 +154,7 @@ CREATE TABLE IF NOT EXISTS trip_plan_day (
   INDEX idx_day_plan (plan_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 行程项目表：一天里的具体安排，例如交通、景点、美食、酒店。
 CREATE TABLE IF NOT EXISTS trip_plan_item (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   plan_day_id BIGINT NOT NULL,
@@ -162,6 +172,7 @@ CREATE TABLE IF NOT EXISTS trip_plan_item (
   INDEX idx_item_day (plan_day_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 收藏表：当前前端还没做收藏，但先预留业务表。
 CREATE TABLE IF NOT EXISTS favorite (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   user_id BIGINT NOT NULL,
@@ -172,6 +183,7 @@ CREATE TABLE IF NOT EXISTS favorite (
   UNIQUE KEY uk_favorite_user_target (user_id, target_type, target_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- AI 调用日志：当前记录占位 AI 请求，未来接入 FastAPI 后继续复用。
 CREATE TABLE IF NOT EXISTS ai_call_log (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   user_id BIGINT,

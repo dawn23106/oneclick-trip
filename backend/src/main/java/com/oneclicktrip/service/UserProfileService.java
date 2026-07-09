@@ -22,6 +22,7 @@ public class UserProfileService {
 
     @Transactional
     public UserProfileResponse updateProfile(Long userId, UpdateUserProfileRequest request) {
+        // 只允许用户修改昵称和头像，账号名、角色这类敏感字段不从前端更新。
         User user = getActiveUser(userId);
         user.setNickname(request.nickname().trim());
         user.setAvatarUrl(request.avatarUrl().trim());
@@ -30,6 +31,7 @@ public class UserProfileService {
     }
 
     private User getActiveUser(Long userId) {
+        // 所有“当前用户”操作都先校验用户是否存在且启用。
         User user = userMapper.selectById(userId);
         if (user == null || user.getStatus() == null || user.getStatus() != 1) {
             throw new BusinessException("用户不存在或已停用");

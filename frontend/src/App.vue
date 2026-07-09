@@ -31,6 +31,7 @@
         <span class="status-icons">5G ▮▮▮▮ 🔋 85%</span>
       </div>
 
+      <!-- 登录页：未登录时默认展示，登录成功后进入首页。 -->
       <section class="page login-page" :class="{ active: activePage === 'login' }">
         <div class="login-hero">
           <div class="login-brand">
@@ -68,6 +69,7 @@
         </form>
       </section>
 
+      <!-- 首页：AI 入口、热门目的地、精选行程模板都在这里。 -->
       <section class="page" :class="{ active: activePage === 'home' }">
         <div class="nav-bar nav-split">
           <span class="brand-title">🧭 一键游</span>
@@ -147,6 +149,7 @@
         </button>
       </section>
 
+      <!-- AI 助手页：当前只接 Java 占位接口，真实 AI 后续再接 FastAPI。 -->
       <section class="page" :class="{ active: activePage === 'chat' }">
         <div class="nav-bar">
           <button class="back" type="button" @click="go('home')">‹</button>
@@ -175,6 +178,7 @@
         </div>
       </section>
 
+      <!-- 规划页：收集出发城市、目的地、天数、预算、人数和偏好。 -->
       <section class="page" :class="{ active: activePage === 'planner' }">
         <div class="nav-bar">
           <button class="back" type="button" @click="go('home')">‹</button>
@@ -245,6 +249,7 @@
         </div>
       </section>
 
+      <!-- 行程详情页：展示后端生成的 dayPlans；没有真实数据时展示原型示例。 -->
       <section class="page" :class="{ active: activePage === 'trip' }">
         <div class="nav-bar">
           <button class="back" type="button" @click="go('home')">‹</button>
@@ -280,6 +285,7 @@
         </div>
       </section>
 
+      <!-- 景点攻略页：可切换城市，优先展示后端真实景点数据。 -->
       <section class="page" :class="{ active: activePage === 'dest' }">
         <div class="nav-bar">
           <button class="back" type="button" @click="go('home')">‹</button>
@@ -312,6 +318,7 @@
         </div>
       </section>
 
+      <!-- 美食页：可切换城市，成都美食图片来自 public/oneclick-trip-assets。 -->
       <section class="page" :class="{ active: activePage === 'food' }">
         <div class="nav-bar">
           <button class="back" type="button" @click="go('home')">‹</button>
@@ -338,6 +345,7 @@
         <button class="btn-block orange" type="button" @click="go('planner')">🍽️ 把美食加入行程</button>
       </section>
 
+      <!-- 我的页：用户资料入口、行程入口、退出登录都放在这里。 -->
       <section class="page" :class="{ active: activePage === 'mine' }">
         <div class="nav-bar">我的</div>
         <div class="profile-header">
@@ -359,6 +367,7 @@
         </div>
       </section>
 
+      <!-- 编辑资料页：修改昵称和预设头像，保存后调用 PUT /api/users/me。 -->
       <section class="page" :class="{ active: activePage === 'profileEdit' }">
         <div class="nav-bar">
           <button class="back" type="button" @click="go('mine')">‹</button>
@@ -425,6 +434,7 @@ import { api, getToken, setToken } from './api/client'
 
 const USER_KEY = 'oneclick_trip_user'
 
+// 城市切换条是一个小的内联组件，景点页和美食页都会复用。
 const CitySwitch = defineComponent({
   props: {
     cities: { type: Array, required: true },
@@ -451,6 +461,8 @@ const CitySwitch = defineComponent({
   }
 })
 
+// ========= 页面状态 =========
+// ref 用来保存会变化的简单值；activePage 决定当前手机框展示哪个页面。
 const backendOnline = ref(false)
 const currentUser = ref(readSavedUser())
 const isAuthenticated = ref(Boolean(getToken()))
@@ -470,6 +482,8 @@ const loginError = ref('')
 const profileLoading = ref(false)
 const profileError = ref('')
 
+// ========= 表单状态 =========
+// reactive 适合保存一组相关字段，比如登录表单、资料表单、行程表单。
 const loginForm = reactive({
   username: 'admin',
   password: '123456'
@@ -492,6 +506,7 @@ const planForm = reactive({
 
 const preferenceTags = ['美食', '轻松', '人文', '拍照', '亲子', '自然']
 
+// 头像目前不是上传图片，而是预设选项；保存到数据库的是 id，例如 avatar-compass。
 const avatarOptions = [
   { id: 'avatar-compass', icon: '🧭', label: '指南针', className: 'avatar-teal' },
   { id: 'avatar-backpack', icon: '🎒', label: '背包客', className: 'avatar-green' },
@@ -501,6 +516,7 @@ const avatarOptions = [
   { id: 'avatar-noodle', icon: '🍜', label: '美食', className: 'avatar-orange' }
 ]
 
+// 后端连不上时，前端会用 fallbackCities 保证页面仍然能展示。
 const fallbackCities = [
   { id: 1, key: 'chengdu', name: '成都', province: '四川', summary: '适合轻松美食游，熊猫、古街、火锅和川西文化都很集中。', summaryShort: '天府之国 · 美食之都' },
   { id: 2, key: 'hangzhou', name: '杭州', province: '浙江', summary: '西湖、灵隐寺和龙井村适合慢节奏城市自然游。', summaryShort: '人间天堂 · 西湖美景' },
@@ -508,6 +524,8 @@ const fallbackCities = [
   { id: 4, key: 'dali', name: '大理', province: '云南', summary: '苍山洱海和古城生活感强，适合放松度假。', summaryShort: '苍山洱海 · 风花雪月' }
 ]
 
+// guideData 是前端原型里的展示文案和渐变底图。
+// 后端真实数据主要负责城市、景点、美食、酒店等结构化内容。
 const guideData = {
   chengdu: {
     hero: 'linear-gradient(135deg, #ff7467, #ffb36f)',
@@ -591,6 +609,8 @@ const guideData = {
   }
 }
 
+// ========= 计算属性 =========
+// computed 会根据依赖自动更新，适合把后端数据转换成页面展示需要的形状。
 const displayCities = computed(() => {
   if (!cities.value.length) return fallbackCities
   return cities.value.map((city) => ({
@@ -606,6 +626,7 @@ const currentAvatar = computed(() => findAvatar(currentUser.value?.avatarUrl))
 const selectedProfileAvatar = computed(() => findAvatar(profileForm.avatarUrl))
 const chengduCover = "linear-gradient(transparent 52%,rgba(0,0,0,0.68)), url('/oneclick-trip-assets/chengdu-destination.png') center 56%/cover no-repeat"
 
+// 景点卡片优先使用后端 spots；如果后端没连上，就使用 guideData 里的原型数据。
 const spotCards = computed(() => {
   if (spots.value.length) {
     return spots.value.map((spot, index) => ({
@@ -621,6 +642,7 @@ const spotCards = computed(() => {
   }))
 })
 
+// 美食卡片同理：有后端数据就展示后端数据，否则展示本地原型数据。
 const foodCards = computed(() => {
   if (foods.value.length) {
     return foods.value.map((food, index) => ({
@@ -642,6 +664,7 @@ const foodCards = computed(() => {
   }))
 })
 
+// 行程详情优先展示后端生成的 plan.dayPlans；没有生成时展示一条原型示例。
 const planDays = computed(() => {
   if (plan.value?.dayPlans?.length) return plan.value.dayPlans
   return [
@@ -658,9 +681,11 @@ const planDays = computed(() => {
 })
 
 onMounted(async () => {
+  // 页面加载时，如果本地已有 token，就先向后端确认当前用户是否仍然有效。
   if (isAuthenticated.value) {
     await refreshProfile()
   }
+  // 再加载城市、景点、美食等首页需要的数据。
   await loadInitialData()
 })
 
@@ -670,6 +695,7 @@ function findAvatar(avatarId) {
 
 async function loadInitialData() {
   try {
+    // 能请求成功说明后端在线，页面就使用真实数据库数据。
     cities.value = await api.cities()
     backendOnline.value = true
     if (cities.value.length) {
@@ -677,6 +703,7 @@ async function loadInitialData() {
       selectedCityKey.value = cityKeyByName(cities.value[0].name)
     }
   } catch {
+    // 后端没启动时不让页面空白，退回本地演示数据。
     cities.value = fallbackCities
     backendOnline.value = false
   }
@@ -694,6 +721,7 @@ async function loadCityDetail() {
     return
   }
   try {
+    // 同一个城市详情页需要景点、美食、酒店，三类数据可以并行请求。
     const [spotData, foodData, hotelData] = await Promise.all([
       api.spots(city.id),
       api.foods(city.id),
@@ -711,6 +739,7 @@ async function loadCityDetail() {
 }
 
 function go(page) {
+  // 除登录页外，其他页面都要求先登录。
   if (page !== 'login' && !isAuthenticated.value) {
     activePage.value = 'login'
     toastText.value = '请先登录'
@@ -725,6 +754,7 @@ async function goGuide(page, cityKey) {
     return
   }
   selectedCityKey.value = cityKey || selectedCityKey.value
+  // 切换城市时，重新加载这个城市的景点/美食/酒店。
   await loadCityDetail()
   activePage.value = page
 }
@@ -766,6 +796,7 @@ async function refreshProfile() {
     saveUser(data)
     syncProfileForm(data)
   } catch {
+    // token 失效或后端拒绝时，清空本地登录态，让用户重新登录。
     setToken('')
     saveUser(null)
     currentUser.value = null
@@ -788,6 +819,7 @@ async function handleLogin() {
   }
   loginLoading.value = true
   try {
+    // 登录成功后后端会返回 token 和用户基础资料。
     const data = await api.login({
       username: loginForm.username,
       password: loginForm.password
@@ -821,6 +853,7 @@ async function handleProfileUpdate() {
   }
   profileLoading.value = true
   try {
+    // 保存资料会同时更新后端数据库和本地缓存。
     const data = normalizeUser(await api.updateProfile({
       nickname: profileForm.nickname,
       avatarUrl: profileForm.avatarUrl
@@ -838,6 +871,7 @@ async function handleProfileUpdate() {
 }
 
 function logout() {
+  // 退出登录只需要清掉本地 token 和用户缓存，后端 JWT 是无状态的。
   setToken('')
   saveUser(null)
   currentUser.value = null
@@ -874,6 +908,7 @@ async function generatePlan() {
       activePage.value = 'trip'
       return
     }
+    // 调用 Java 后端规则版生成接口，返回的行程会直接用于行程详情页。
     plan.value = await api.generatePlan(planForm)
     activePage.value = 'trip'
   } catch (error) {
@@ -890,6 +925,7 @@ async function callAiPlaceholder(message) {
       aiReply.value = 'AI 助手暂未接入。后端未启动时，这里显示本地占位回复。'
       return
     }
+    // 当前只是占位回复；未来 FastAPI AI 引擎接入后，前端调用方式可以保持不变。
     const data = await api.aiChat(text)
     aiReply.value = data.message
   } catch (error) {

@@ -22,6 +22,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        // Controller 只负责接收请求和返回结果，真正的登录判断放在 AuthService。
         return ApiResponse.ok(authService.login(request));
     }
 
@@ -30,4 +31,3 @@ public class AuthController {
         return ApiResponse.ok(authService.register(request));
     }
 }
-

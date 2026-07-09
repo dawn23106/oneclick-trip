@@ -22,6 +22,7 @@ public class CatalogController {
 
     @GetMapping("/cities")
     public ApiResponse<List<City>> cities() {
+        // 首页热门目的地、规划页目的地选择都从这里拿城市列表。
         return ApiResponse.ok(catalogService.listCities());
     }
 
@@ -32,11 +33,13 @@ public class CatalogController {
 
     @GetMapping("/cities/{id}/spots")
     public ApiResponse<List<ScenicSpot>> spots(@PathVariable Long id) {
+        // 景点攻略页和规则版行程生成都会使用城市景点数据。
         return ApiResponse.ok(catalogService.listSpots(id));
     }
 
     @GetMapping("/cities/{id}/foods")
     public ApiResponse<List<Food>> foods(@PathVariable Long id) {
+        // 美食页和行程生成中的午餐/晚餐安排都会使用这里的数据。
         return ApiResponse.ok(catalogService.listFoods(id));
     }
 
@@ -50,4 +53,3 @@ public class CatalogController {
         return ApiResponse.ok(catalogService.listTemplates(cityId));
     }
 }
-

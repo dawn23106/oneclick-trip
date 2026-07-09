@@ -31,6 +31,7 @@ public class CatalogService {
     }
 
     public List<City> listCities() {
+        // status=1 表示启用；sortOrder 用来控制前端展示顺序。
         return cityMapper.selectList(Wrappers.<City>lambdaQuery()
                 .eq(City::getStatus, 1)
                 .orderByAsc(City::getSortOrder)
@@ -46,6 +47,7 @@ public class CatalogService {
     }
 
     public List<ScenicSpot> listSpots(Long cityId) {
+        // 先确认城市存在，避免前端传一个不存在的 cityId 还继续查资料。
         getCity(cityId);
         return scenicSpotMapper.selectList(Wrappers.<ScenicSpot>lambdaQuery()
                 .eq(ScenicSpot::getCityId, cityId)
@@ -73,6 +75,7 @@ public class CatalogService {
     }
 
     public List<TripTemplate> listTemplates(Long cityId) {
+        // cityId 可选：传了就查某个城市的模板，不传就查全部启用模板。
         return tripTemplateMapper.selectList(Wrappers.<TripTemplate>lambdaQuery()
                 .eq(cityId != null, TripTemplate::getCityId, cityId)
                 .eq(TripTemplate::getStatus, 1)
@@ -80,4 +83,3 @@ public class CatalogService {
                 .orderByAsc(TripTemplate::getId));
     }
 }
-

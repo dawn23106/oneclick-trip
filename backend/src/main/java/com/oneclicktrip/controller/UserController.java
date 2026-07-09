@@ -24,6 +24,7 @@ public class UserController {
 
     @GetMapping("/me")
     public ApiResponse<UserProfileResponse> me(@AuthenticationPrincipal JwtUser user) {
+        // @AuthenticationPrincipal 来自 JWT 过滤器，表示当前登录用户。
         return ApiResponse.ok(userProfileService.getProfile(user.userId()));
     }
 

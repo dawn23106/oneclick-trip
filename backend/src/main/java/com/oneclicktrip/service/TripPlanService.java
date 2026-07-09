@@ -39,6 +39,8 @@ public class TripPlanService {
 
     @Transactional
     public TripPlanResponse generate(GenerateTripPlanRequest request) {
+        // 1. 先把生成行程需要的基础资料查出来。
+        // 当前 MVP 只依赖本地数据库；未来 AI Agent 也可以先查这些资料再做优化。
         City city = catalogService.getCity(request.cityId());
         List<ScenicSpot> spots = catalogService.listSpots(request.cityId());
         List<Food> foods = catalogService.listFoods(request.cityId());
@@ -60,6 +62,7 @@ public class TripPlanService {
                 ? "轻松,美食"
                 : String.join(",", request.interests());
 
+        // 2. 先保存行程主表。主表只记录“这是谁的几日游、预算、偏好”等概要信息。
         TripPlan plan = new TripPlan();
         plan.setCityId(city.getId());
         plan.setDepartureCity(defaultText(request.departureCity(), "本地"));
@@ -75,6 +78,7 @@ public class TripPlanService {
         plan.setTotalBudget(BigDecimal.ZERO);
         tripPlanMapper.insert(plan);
 
+        // 3. 再按天生成明细。每一天会有交通、景点、午餐、景点、晚餐、酒店这些项目。
         BigDecimal total = BigDecimal.ZERO;
         for (int dayNo = 1; dayNo <= days; dayNo++) {
             TripPlanDay day = new TripPlanDay();
@@ -91,12 +95,14 @@ public class TripPlanService {
             }
         }
 
+        // 4. 明细插入完成后，回填整趟行程的总预算。
         plan.setTotalBudget(total.setScale(2, RoundingMode.HALF_UP));
         tripPlanMapper.updateById(plan);
         return getPlan(plan.getId());
     }
 
     public TripPlanResponse getPlan(Long id) {
+        // 查询行程详情时，需要把主表、每天、每天的项目组装成前端容易展示的嵌套结构。
         TripPlan plan = tripPlanMapper.selectById(id);
         if (plan == null) {
             throw new BusinessException("行程不存在");
@@ -149,6 +155,8 @@ public class TripPlanService {
             Hotel hotel
     ) {
         List<TripPlanItem> items = new ArrayList<>();
+
+        // 用取模轮换景点和美食：当游玩天数多于资料数量时，也能循环安排。
         ScenicSpot firstSpot = spots.get((dayNo - 1) % spots.size());
         ScenicSpot secondSpot = spots.get(dayNo % spots.size());
         Food lunch = foods.get((dayNo - 1) % foods.size());
@@ -226,4 +234,3 @@ public class TripPlanService {
         return "轻松补充路线";
     }
 }
-

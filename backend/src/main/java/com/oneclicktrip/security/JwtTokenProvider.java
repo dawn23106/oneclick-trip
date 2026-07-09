@@ -28,6 +28,9 @@ public class JwtTokenProvider {
     public String createToken(User user) {
         long now = Instant.now().getEpochSecond();
         Map<String, Object> header = Map.of("alg", "HS256", "typ", "JWT");
+
+        // payload 是 token 中真正携带的用户信息。
+        // 这里只放用户 id、用户名、角色和过期时间，不放密码。
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("sub", user.getId().toString());
         payload.put("username", user.getUsername());
@@ -48,12 +51,14 @@ public class JwtTokenProvider {
                 return null;
             }
             String unsigned = parts[0] + "." + parts[1];
+            // 重新计算签名，确认 token 没有被用户篡改。
             if (!sign(unsigned).equals(parts[2])) {
                 return null;
             }
             byte[] payloadBytes = Base64.getUrlDecoder().decode(parts[1]);
             Map<String, Object> payload = objectMapper.readValue(payloadBytes, new TypeReference<>() {});
             long exp = ((Number) payload.get("exp")).longValue();
+            // 过期 token 直接视为无效，前端需要重新登录。
             if (Instant.now().getEpochSecond() > exp) {
                 return null;
             }
@@ -85,7 +90,7 @@ public class JwtTokenProvider {
     }
 
     private String base64Url(byte[] bytes) {
+        // JWT 使用 URL 安全的 Base64，并且通常去掉末尾的等号填充。
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }
-

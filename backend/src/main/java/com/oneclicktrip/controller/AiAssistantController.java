@@ -21,7 +21,7 @@ public class AiAssistantController {
 
     @PostMapping("/chat")
     public ApiResponse<AiChatResponse> chat(@Valid @RequestBody AiChatRequest request) {
+        // AI 功能目前只是占位接口，先让前端和 Java 后端的链路完整跑通。
         return ApiResponse.ok(aiAssistantService.chat(request));
     }
 }
-

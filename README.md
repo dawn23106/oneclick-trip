@@ -2,6 +2,12 @@
 
 这个目录先实现项目的 Java 业务后端、MySQL 数据库和 Vue 3 前端部分。AI 助手暂时只保留占位接口，后续可替换为 FastAPI + LangGraph 服务。
 
+如果第一次看不懂项目结构，先读：
+
+```text
+docs/project-structure.md
+```
+
 ## 已完成的非 AI 闭环
 
 - Spring Boot 3.x 后端工程

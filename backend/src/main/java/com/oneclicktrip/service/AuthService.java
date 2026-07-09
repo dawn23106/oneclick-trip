@@ -24,6 +24,8 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request) {
+        // 先按用户名查启用中的用户，再用 PasswordEncoder 比对密码。
+        // 不要自己用字符串直接比较密码，因为后续注册用户的密码会被加密存储。
         User user = userMapper.selectOne(Wrappers.<User>lambdaQuery()
                 .eq(User::getUsername, request.username())
                 .eq(User::getStatus, 1)
@@ -36,6 +38,7 @@ public class AuthService {
     }
 
     public LoginResponse register(RegisterRequest request) {
+        // 注册前先检查用户名是否重复。
         Long exists = userMapper.selectCount(Wrappers.<User>lambdaQuery()
                 .eq(User::getUsername, request.username()));
         if (exists != null && exists > 0) {
@@ -51,6 +54,8 @@ public class AuthService {
         user.setRole("USER");
         user.setStatus(1);
         userMapper.insert(user);
+
+        // 注册成功后直接签发 token，让用户不用再手动登录一次。
         String token = jwtTokenProvider.createToken(user);
         return toLoginResponse(token, user);
     }
