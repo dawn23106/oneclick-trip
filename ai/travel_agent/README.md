@@ -1,10 +1,11 @@
 # OneClick Trip Agent
 
-基于 LangGraph 的“旅游一条龙”Agent。当前完成 **Phase 8 基础设施**，并开始接入 **B-01 真实旅游工具平台**。
+基于 LangGraph 的“旅游一条龙”Agent。当前完成 **Phase 8 基础设施** 和 **B-01 真实旅游工具平台**，下一阶段进入 B-02 知识数据清洗与入库。
 
 ## 当前数据策略
 
-- 正式 FastAPI 应用使用 Open-Meteo 查询真实天气，使用 OSRM 查询带可信坐标的景点路线；结果统一记录来源、数据模式、抓取时间和置信度。
+- 正式 FastAPI 应用使用 Open-Meteo 查询真实天气，使用 Nominatim 验证景点坐标，再由 OSRM 查询真实景点路线；结果统一记录来源、数据模式、抓取时间和置信度。
+- Agent Reach 与小红书采集器不进入用户请求，仅保留在 B-02 管理端离线知识采集注册表。
 - 完整规划恢复 Dify V3 的两阶段结构：DeepSeek 宽搜候选，代码校验候选来源，再由 DeepSeek 精查路线、开放时间与门票参考。
 - 酒店建议、交通建议、景点、美食和方案修改不调用 Mock 研究工具；模型知识与实时接口数据在 State 中明确区分。
 - 模型生成内容属于 AI 通用知识建议，不冒充实时搜索结果；价格、班次、营业时间、余量等必须在接入真实供应商后再确认。
@@ -50,7 +51,7 @@ flowchart TD
     MEM --> END
     A --> END
 
-    Q -. weather only .-> QT[Weather Demo Interface]
+    Q -. weather only .-> QT[Open-Meteo Weather]
     Q -. other queries .-> LLMQ[DeepSeek Direct Answer]
     P --> R1[Phase 1 Research Agent]
     R1 --> CS[Candidate Selector]
@@ -99,7 +100,8 @@ select_query_tools
 
 ```text
 phase1_research
-  -> weather 演示接口 + DeepSeek 候选宽搜
+  -> Open-Meteo + DeepSeek 候选宽搜
+  -> Nominatim 候选景点坐标验证
   -> budget_feasibility
   -> candidate_selection
   -> candidate_validation
@@ -146,7 +148,7 @@ booking_slot_guard
 
 默认使用可测试的 `RuleBasedIntentAgent`；正式模型通过 `LangChainIntentAgent` 注入，并使用 Pydantic structured output。模型只提出结构化意图，缺失槽位、流程路由和工具白名单均由代码决定。Query、Planning、Modify 与 Booking 均为编译后的 SubGraph。
 
-项目保留 `weather`、`hotel_search`、`train_search`、`flight_search`、`poi_search`、`route_matrix`、`opening_hours`、`ticket` 的统一 `ToolResult` 契约，但当前根图只启用天气演示接口。其余阶段由模型生成 `AI_KNOWLEDGE` 研究数据，绝不标记为实时价格、天气或余量；以后接入真实 Provider 时可逐项替换。
+项目保留 `weather`、`hotel_search`、`train_search`、`flight_search`、`poi_search`、`poi_coordinates`、`route_matrix`、`opening_hours`、`ticket` 的统一 `ToolResult` 契约。当前用户运行时启用 Open-Meteo、Nominatim 和 OSRM；其余阶段由模型生成 `AI_KNOWLEDGE` 研究数据，绝不标记为实时价格、班次或余量，以后可逐项替换为合规 Provider。
 
 `ToolErrorHandler` 支持 `retry/fallback/continue/abort`。可重试错误最多额外执行一次。当前天气接口失败时可降级；研究 Agent 失败时由规则研究器生成明确标记为 `OFFLINE_FALLBACK` 的保守候选，仍需经过候选校验和最终质量门禁。
 
@@ -286,7 +288,7 @@ uv venv --python 3.13 .venv
 uv sync --extra dev
 .\.venv\Scripts\python.exe scripts\bootstrap_infrastructure.py
 .\.venv\Scripts\python.exe -m pytest
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8002
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 接口：

@@ -57,11 +57,14 @@ class BookingStatus(StrEnum):
 
 
 class ToolName(StrEnum):
+    TRAVEL_RESEARCH = "travel_research"
+    XIAOHONGSHU_RESEARCH = "xiaohongshu_research"
     WEATHER = "weather"
     HOTEL_SEARCH = "hotel_search"
     TRAIN_SEARCH = "train_search"
     FLIGHT_SEARCH = "flight_search"
     POI_SEARCH = "poi_search"
+    POI_COORDINATES = "poi_coordinates"
     ROUTE_MATRIX = "route_matrix"
     OPENING_HOURS = "opening_hours"
     TICKET = "ticket"
@@ -222,6 +225,23 @@ class TransportCandidate(DomainModel):
     price: Decimal = Decimal("0")
 
 
+class ResearchSourceReference(DomainModel):
+    title: str
+    url: str
+    source_tier: str
+    authority_score: float = Field(ge=0, le=1)
+
+
+class ResearchEvidenceClaim(DomainModel):
+    metric: str
+    lower: float
+    upper: float
+    unit: str
+    source_count: int = Field(ge=1)
+    source_urls: list[str] = Field(default_factory=list)
+    corroborated: bool = False
+
+
 class Phase1Research(DomainModel):
     data_mode: str = "AI_KNOWLEDGE"
     destination: str
@@ -229,6 +249,9 @@ class Phase1Research(DomainModel):
     poi_candidates: list[POICandidate] = Field(default_factory=list)
     hotel_areas: list[HotelAreaCandidate] = Field(default_factory=list)
     transport_options: list[TransportCandidate] = Field(default_factory=list)
+    research_sources: list[ResearchSourceReference] = Field(default_factory=list)
+    evidence_claims: list[ResearchEvidenceClaim] = Field(default_factory=list)
+    research_confidence: float | None = Field(default=None, ge=0, le=1)
 
 
 class BudgetFeasibility(DomainModel):

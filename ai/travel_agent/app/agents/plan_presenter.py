@@ -204,6 +204,24 @@ def _research_summary(
         )
     if phase1.weather_summary:
         lines.append(f"天气参考：{phase1.weather_summary}")
+    if phase1.research_sources:
+        official_count = sum(
+            source.source_tier == "official" for source in phase1.research_sources
+        )
+        lines.append(
+            f"联网依据：参考 {len(phase1.research_sources)} 个来源，"
+            f"其中官方来源 {official_count} 个；未交叉验证的数据仍需出发前确认。"
+        )
+        xiaohongshu_count = sum(
+            source.source_tier == "community"
+            and "xiaohongshu.com" in source.url
+            for source in phase1.research_sources
+        )
+        if xiaohongshu_count:
+            lines.append(
+                f"小红书经验：已参考 {xiaohongshu_count} 篇笔记，"
+                "仅用于补充真实体验和节奏建议，不替代官方信息。"
+            )
     return lines
 
 

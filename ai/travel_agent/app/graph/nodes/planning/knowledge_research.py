@@ -1,32 +1,39 @@
 from langchain_core.runnables import Runnable, RunnableLambda
 
 from app.agents.research_agent import Phase1ResearchAgent, Phase2ResearchAgent
-from app.domain.models import RouteLeg, ToolDataMode, ToolName, TravelEntities, UserPreferences
+from app.domain.models import (
+    RouteLeg,
+    ToolDataMode,
+    ToolName,
+    TravelEntities,
+    UserPreferences,
+)
 from app.graph.state import TravelState, TravelStatePatch
 from app.tools.contracts import ToolContext
 from app.tools.executor import ToolExecutor
+from app.tools.provider_tools import apply_verified_coordinates
+from app.graph.tool_runtime import context_from_state
 
 
 def make_phase1_research_node(
     agent: Phase1ResearchAgent,
     executor: ToolExecutor,
 ) -> Runnable[TravelState, TravelStatePatch]:
-    def arguments(state: TravelState, weather_summary: str) -> dict:
+    def arguments(
+        state: TravelState,
+        weather_summary: str,
+        research_context: dict | None,
+    ) -> dict:
         return {
             "entities": state.get("entities") or TravelEntities(),
             "preferences": state.get("effective_preferences") or UserPreferences(),
             "weather_summary": weather_summary,
+            "research_context": research_context,
         }
 
-    def weather(state: TravelState):
-        entities = state.get("entities") or TravelEntities()
-        outcome = executor.execute(
-            ToolName.WEATHER,
-            ToolContext(
-                entities=entities,
-                preferences=state.get("effective_preferences") or UserPreferences(),
-            ),
-        )
+    def execute_tools(state: TravelState):
+        context = context_from_state(state)
+        outcome = executor.execute(ToolName.WEATHER, context)
         summary = (
             str(outcome.result.data.get("summary", "天气信息待核实"))
             if outcome.result.success
@@ -34,24 +41,53 @@ def make_phase1_research_node(
         )
         return outcome, summary
 
-    def patch(research, outcome) -> TravelStatePatch:
+    def enrich_coordinates(state: TravelState, research):
+        if ToolName.POI_COORDINATES not in executor.realtime_tools:
+            return research, None
+        coordinate_outcome = executor.execute(
+            ToolName.POI_COORDINATES,
+            ToolContext(
+                entities=state.get("entities") or TravelEntities(),
+                preferences=state.get("effective_preferences") or UserPreferences(),
+                phase1_research=research,
+            ),
+        )
+        return (
+            apply_verified_coordinates(research, coordinate_outcome.result),
+            coordinate_outcome,
+        )
+
+    def patch(research, outcome, coordinate_outcome) -> TravelStatePatch:
+        selected_tools = [ToolName.WEATHER.value]
+        results = {ToolName.WEATHER.value: outcome.result}
+        errors = list(outcome.errors)
+        attempts = {ToolName.WEATHER.value: outcome.attempts}
+        if coordinate_outcome is not None:
+            selected_tools.append(ToolName.POI_COORDINATES.value)
+            results[ToolName.POI_COORDINATES.value] = coordinate_outcome.result
+            errors.extend(coordinate_outcome.errors)
+            attempts[ToolName.POI_COORDINATES.value] = coordinate_outcome.attempts
         return {
             "phase1_research": research,
-            "selected_tools": [ToolName.WEATHER.value],
-            "tool_results": {ToolName.WEATHER.value: outcome.result},
-            "tool_errors": outcome.errors,
-            "tool_attempts": {ToolName.WEATHER.value: outcome.attempts},
+            "selected_tools": selected_tools,
+            "tool_results": results,
+            "tool_errors": errors,
+            "tool_attempts": attempts,
             "tool_abort_requested": False,
             "planning_errors": [],
         }
 
     def research(state: TravelState) -> TravelStatePatch:
-        outcome, summary = weather(state)
-        return patch(agent.research(**arguments(state, summary)), outcome)
+        outcome, summary = execute_tools(state)
+        phase1 = agent.research(**arguments(state, summary, None))
+        phase1, coordinate_outcome = enrich_coordinates(state, phase1)
+        return patch(phase1, outcome, coordinate_outcome)
 
     async def aresearch(state: TravelState) -> TravelStatePatch:
-        outcome, summary = weather(state)
-        return patch(await agent.aresearch(**arguments(state, summary)), outcome)
+        outcome, summary = execute_tools(state)
+        phase1 = await agent.aresearch(**arguments(state, summary, None))
+        phase1, coordinate_outcome = enrich_coordinates(state, phase1)
+        return patch(phase1, outcome, coordinate_outcome)
 
     return RunnableLambda(research, afunc=aresearch, name="phase1_research")
 

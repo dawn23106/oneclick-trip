@@ -326,6 +326,23 @@
                     <span v-for="tool in turn.response.tools" :key="tool"><el-icon><CircleCheck /></el-icon>{{ tool }}</span>
                   </div>
 
+                  <section v-if="turn.response.route" class="agent-route-proof" aria-label="OSRM 在线道路测算">
+                    <div class="route-proof-heading">
+                      <span><el-icon><MapLocation /></el-icon></span>
+                      <div>
+                        <small><i></i>{{ turn.response.route.sourceLabel }}</small>
+                        <strong>{{ turn.response.route.totalDistance }} km · 约 {{ turn.response.route.totalDuration }} 分钟</strong>
+                      </div>
+                    </div>
+                    <ol>
+                      <li v-for="leg in turn.response.route.legs" :key="leg.fromId + '-' + leg.toId">
+                        <span>{{ leg.fromName }} <el-icon><Right /></el-icon> {{ leg.toName }}</span>
+                        <strong>{{ leg.distance }} km · {{ leg.duration }} 分钟</strong>
+                      </li>
+                    </ol>
+                    <small class="route-proof-note">按道路驾车测算，实际时间会受实时路况影响</small>
+                  </section>
+
                   <div v-if="turn.response.planPreview.length" class="agent-plan-preview">
                     <div v-for="day in turn.response.planPreview" :key="day.dayIndex">
                       <strong>{{ day.title }}</strong>
@@ -427,6 +444,23 @@
             <div><span><el-icon><Timer /></el-icon></span><small>日均游玩</small><strong>{{ averageDailyHours }}</strong></div>
             <div><span><el-icon><Tickets /></el-icon></span><small>待预订</small><strong>{{ pendingBookingCount }} 项</strong></div>
           </div>
+
+          <section v-if="plan?.route" class="trip-route-proof" aria-label="真实路线测算">
+            <div class="trip-route-proof-heading">
+              <span><el-icon><MapLocation /></el-icon></span>
+              <div>
+                <small>{{ plan.route.sourceLabel }}</small>
+                <strong>{{ plan.route.totalDistance }} km · 约 {{ plan.route.totalDuration }} 分钟</strong>
+              </div>
+            </div>
+            <div class="trip-route-legs">
+              <div v-for="leg in plan.route.legs" :key="leg.fromId + '-' + leg.toId">
+                <span>{{ leg.fromName }} <el-icon><Right /></el-icon> {{ leg.toName }}</span>
+                <strong>{{ leg.distance }} km · {{ leg.duration }} 分钟</strong>
+              </div>
+            </div>
+            <p>OSRM 道路测算 · 实际时间会受出行方式与实时路况影响</p>
+          </section>
 
           <div class="agent-note">
             <span><el-icon><MagicStick /></el-icon></span>
@@ -1425,8 +1459,9 @@ function buildAgentProgressSteps(message) {
     return [
       step('理解需求', '正在理解旅行需求', '识别目的地、时间、人数与预算'),
       step('读取偏好', '正在结合旅行画像', '本次明确要求优先于历史偏好'),
-      step('初步搜索', '正在进行第一阶段研究', '整理天气、住宿区域和景点候选'),
-      step('路线精查', '正在组合路线与时间', '检查地点顺序、开放时间与交通'),
+      step('生成候选', '正在生成景点与住宿候选', '结合本次需求和旅行画像筛选地点'),
+      step('定位景点', '正在核对景点坐标', '为真实路线服务准备可信位置'),
+      step('路线精查', '正在调用 OSRM 计算路线', '按真实道路计算景点间距离和预计车程'),
       step('方案校验', '正在检查行程合理性', '核对预算、节奏和时间冲突'),
       step('生成回答', '正在整理完整方案', '把研究结果转换为可执行行程')
     ]
@@ -1434,8 +1469,8 @@ function buildAgentProgressSteps(message) {
   return [
     step('理解问题', '正在理解你的问题', '识别本次需求与上下文'),
     step('选择能力', '正在选择处理方式', '只调用本次真正需要的能力'),
-    step('查找信息', '正在查找相关信息', '整理与问题最相关的内容'),
-    step('生成回答', '正在组织回答', '检查信息是否清楚、可信')
+    step('组织回答', '正在组织旅行建议', '使用已有知识与当前对话直接回答'),
+    step('检查内容', '正在检查回答', '避免把非实时信息说成实时数据')
   ]
 }
 
@@ -1637,11 +1672,45 @@ function normalizeAgentResponse(data) {
     tools: needsInput ? [] : selectedTools.map((tool) => agentToolLabel(tool)),
     plan: includesPlan ? currentPlan : null,
     planPreview: includesPlan ? buildPlanPreview(currentPlan) : [],
+    route: normalizeAgentRoute(state),
     weatherSummary: state.tool_results?.weather?.data?.summary || '',
     weather: normalizeAgentWeather(state),
     selectedOptions: state.selected_options || {},
     choicePrompt: clarification.choice_prompt || '选一个更接近你的答案',
     actions
+  }
+}
+
+function normalizeAgentRoute(state) {
+  const result = state.tool_results?.route_matrix
+  const route = result?.data
+  const legs = Array.isArray(route?.route_legs) ? route.route_legs : []
+  if (!result?.success || result.data_mode !== 'REALTIME' || !legs.length) return null
+
+  const candidates = Array.isArray(state.phase1_research?.poi_candidates)
+    ? state.phase1_research.poi_candidates
+    : []
+  const names = new Map(candidates.map((poi) => [poi.poi_id, poi.name]))
+  const normalizedLegs = legs.map((leg) => ({
+    fromId: leg.from_id,
+    toId: leg.to_id,
+    fromName: names.get(leg.from_id) || leg.from_id,
+    toName: names.get(leg.to_id) || leg.to_id,
+    distance: Number(leg.distance_km || 0).toFixed(1),
+    duration: Math.max(1, Math.round(Number(leg.duration_minutes || 0)))
+  }))
+  const totalDistance = Number(
+    route.total_distance_km ?? legs.reduce((sum, leg) => sum + Number(leg.distance_km || 0), 0)
+  )
+  const totalDuration = Number(
+    route.total_duration_minutes ?? legs.reduce((sum, leg) => sum + Number(leg.duration_minutes || 0), 0)
+  )
+
+  return {
+    sourceLabel: result.source === 'osrm' ? 'OSRM 在线道路测算' : `${result.source || '地图服务'} 在线路线`,
+    totalDistance: totalDistance.toFixed(1),
+    totalDuration: Math.max(1, Math.round(totalDuration)),
+    legs: normalizedLegs
   }
 }
 
@@ -1750,9 +1819,10 @@ function agentToolLabel(tool) {
     train_search: '火车',
     flight_search: '航班',
     poi_search: '景点候选',
-    route_matrix: '路线矩阵',
+    poi_coordinates: '景点定位',
+    route_matrix: 'OSRM 路线',
     opening_hours: '开放时间',
-    ticket: '门票'
+    ticket: '门票',
   }
   return labels[tool] || tool
 }
@@ -1761,9 +1831,15 @@ function agentDataMode(state) {
   const researchMode = state.phase2_research?.data_mode || state.phase1_research?.data_mode
   if (researchMode === 'AI_KNOWLEDGE') return 'AI 多阶段'
   if (researchMode === 'OFFLINE_FALLBACK') return '离线多阶段'
-  const result = Object.values(state.tool_results || {}).find((item) => item?.data?.data_mode)
+  if (researchMode === 'MIXED_WEB_AI') return '联网 + AI'
+  const toolResults = Object.values(state.tool_results || {})
+  if (toolResults.some((item) => item?.success && item?.data_mode === 'REALTIME')) {
+    return '实时联网'
+  }
+  const result = toolResults.find((item) => item?.data_mode || item?.data?.data_mode)
   if (!result) return 'AI 生成'
-  return result?.data?.data_mode === 'MOCK' ? '接口演示' : (result?.data?.data_mode || 'AI 生成')
+  const dataMode = result?.data_mode || result?.data?.data_mode
+  return dataMode === 'MOCK' ? '接口演示' : (dataMode || 'AI 生成')
 }
 
 function countBookableItems(agentPlan, selectedOptions = {}) {
@@ -1803,6 +1879,7 @@ function convertAgentPlan(agentPlan, response) {
     summary: agentPlan.assumptions?.join('；') || '',
     agentReason: [...new Set(days.map((day) => day.summary).filter(Boolean))].join('；'),
     weatherSummary: compactWeather(response.weatherSummary),
+    route: response.route || null,
     bookableCount: countBookableItems(agentPlan, response.selectedOptions),
     dayPlans: days.map((day) => ({
       dayNo: day.day_index,

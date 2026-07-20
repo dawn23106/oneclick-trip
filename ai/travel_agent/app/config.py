@@ -29,6 +29,14 @@ class Settings:
     osrm_base_url: str = "https://router.project-osrm.org"
     nominatim_base_url: str = "https://nominatim.openstreetmap.org"
     nominatim_user_agent: str = "oneclick-trip/0.8 (educational travel agent)"
+    agent_reach_enabled: bool = False
+    agent_reach_cache_ttl_seconds: float = 300.0
+    agent_reach_result_limit: int = 5
+    agent_reach_fetch_top: int = 2
+    xiaohongshu_enabled: bool = False
+    xiaohongshu_result_limit: int = 8
+    xiaohongshu_detail_limit: int = 2
+    xiaohongshu_detail_delay_seconds: float = 2.2
 
     @property
     def use_external_infrastructure(self) -> bool:
@@ -70,5 +78,19 @@ def load_settings(env_file: Path | None = None) -> Settings:
         nominatim_user_agent=os.getenv(
             "NOMINATIM_USER_AGENT",
             "oneclick-trip/0.8 (educational travel agent)",
+        ),
+        agent_reach_enabled=os.getenv("AGENT_REACH_ENABLED", "false").lower()
+        in {"1", "true", "yes", "on"},
+        agent_reach_cache_ttl_seconds=float(
+            os.getenv("AGENT_REACH_CACHE_TTL_SECONDS", "300")
+        ),
+        agent_reach_result_limit=int(os.getenv("AGENT_REACH_RESULT_LIMIT", "5")),
+        agent_reach_fetch_top=int(os.getenv("AGENT_REACH_FETCH_TOP", "2")),
+        xiaohongshu_enabled=os.getenv("XIAOHONGSHU_ENABLED", "false").lower()
+        in {"1", "true", "yes", "on"},
+        xiaohongshu_result_limit=int(os.getenv("XIAOHONGSHU_RESULT_LIMIT", "8")),
+        xiaohongshu_detail_limit=int(os.getenv("XIAOHONGSHU_DETAIL_LIMIT", "2")),
+        xiaohongshu_detail_delay_seconds=float(
+            os.getenv("XIAOHONGSHU_DETAIL_DELAY_SECONDS", "2.2")
         ),
     )

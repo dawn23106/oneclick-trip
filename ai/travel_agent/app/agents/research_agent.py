@@ -27,6 +27,7 @@ class Phase1ResearchAgent(Protocol):
         entities: TravelEntities,
         preferences: UserPreferences,
         weather_summary: str,
+        research_context: dict | None = None,
     ) -> Phase1Research:
         """Build destination, accommodation, transport and POI candidates."""
 
@@ -67,6 +68,7 @@ class LangChainPhase1ResearchAgent:
         entities: TravelEntities,
         preferences: UserPreferences,
         weather_summary: str,
+        research_context: dict | None = None,
     ) -> list[SystemMessage | HumanMessage]:
         return [
             SystemMessage(
@@ -81,6 +83,8 @@ class LangChainPhase1ResearchAgent:
                     "transport_options.price 统一表示每人往返城际交通的估算总价，不是单程价格；"
                     "没有出发地时 transport_options 为空。data_mode 必须为 AI_KNOWLEDGE。"
                     "所有候选必须有唯一 ID；禁止生成 quote_id、供应商 option_id 或可直接预订的库存。"
+                    "如果提供联网研究证据，只能基于其中的来源补充候选；优先官方来源。"
+                    "没有被多个独立域名交叉验证的时长、里程和爬升只能作为待核实参考，不能写成确定事实。"
                     "输出必须符合以下 JSON Schema："
                     f"{json.dumps(Phase1Research.model_json_schema(), ensure_ascii=False)}"
                 )
@@ -89,7 +93,8 @@ class LangChainPhase1ResearchAgent:
                 content=(
                     f"本次需求：{entities.model_dump_json()}\n"
                     f"长期画像：{preferences.model_dump_json()}\n"
-                    f"天气接口摘要：{weather_summary}"
+                    f"天气接口摘要：{weather_summary}\n"
+                    f"联网研究证据：{json.dumps(research_context or {}, ensure_ascii=False)}"
                 )
             ),
         ]
@@ -101,8 +106,9 @@ class LangChainPhase1ResearchAgent:
         entities: TravelEntities,
         preferences: UserPreferences,
         weather_summary: str,
+        research_context: dict | None = None,
     ) -> Phase1Research:
-        del preferences
+        del preferences, research_context
         pois = [
             poi.model_copy(
                 update={
@@ -226,7 +232,9 @@ class RuleBasedPhase1ResearchAgent:
         entities: TravelEntities,
         preferences: UserPreferences,
         weather_summary: str,
+        research_context: dict | None = None,
     ) -> Phase1Research:
+        del research_context
         destination = entities.destination or "目的地"
         tags = preferences.liked_tags[:2] or ["城市体验"]
         count = max((entities.days or 1) * 2, 2)

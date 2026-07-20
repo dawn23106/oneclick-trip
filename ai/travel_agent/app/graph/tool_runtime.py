@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from langchain_core.messages import HumanMessage
 from langchain_core.runnables import Runnable, RunnableLambda
 from langgraph.types import Overwrite, Send
 
@@ -62,6 +63,7 @@ def make_tool_dispatcher(target_node: str) -> Callable[[TravelState], list[Send]
 
 def context_from_state(state: TravelState) -> ToolContext:
     return ToolContext(
+        query=_latest_query(state),
         entities=state.get("entities") or TravelEntities(),
         preferences=state.get("effective_preferences") or UserPreferences(),
         phase1_research=state.get("phase1_research"),
@@ -73,9 +75,21 @@ def send_payload(state: TravelState, tool_name: str) -> TravelState:
     return {
         "conversation_id": state.get("conversation_id", ""),
         "user_id": state.get("user_id", ""),
+        "messages": state.get("messages", []),
         "entities": state.get("entities") or TravelEntities(),
         "effective_preferences": state.get("effective_preferences") or UserPreferences(),
         "phase1_research": state.get("phase1_research"),
         "candidate_selection": state.get("candidate_selection"),
         "active_tool": tool_name,
     }
+
+
+def _latest_query(state: TravelState) -> str | None:
+    return next(
+        (
+            str(message.content)
+            for message in reversed(state.get("messages", []))
+            if isinstance(message, HumanMessage)
+        ),
+        None,
+    )

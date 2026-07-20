@@ -16,6 +16,7 @@ tools/*.log
 *.log
 logs/
 .runtime-logs/
+.playwright-cli/
 
 # Local-only credentials and machine-specific config
 .env

@@ -78,12 +78,26 @@ class LangChainQueryPresenterAgent:
         conversation_context: list[str] | None = None,
     ) -> list[SystemMessage | HumanMessage]:
         successful = {
-            name: result.model_dump(mode="json")
+            name: _presenter_result_payload(name, result)
             for name, result in results.items()
             if result.success
         }
+        has_web_research = any(
+            name in successful
+            for name in (
+                ToolName.TRAVEL_RESEARCH.value,
+                ToolName.XIAOHONGSHU_RESEARCH.value,
+            )
+        )
         source_rule = (
-            "当前有接口结果时只能依据结果回答，不得补造任何事实。"
+            (
+                "当前有联网研究结果，只能依据结果中的标题、摘要、正文和来源链接回答。"
+                "优先使用 official 来源，并在答案末尾按官网/全网与小红书分组列出实际使用的来源链接。"
+                "小红书内容是社区经验，不能覆盖官方安全规定。"
+                "联网攻略不等于供应商实时库存，不能据此声称实时价格、余量、班次或可预订。"
+            )
+            if has_web_research
+            else "当前有接口结果时只能依据结果回答，不得补造任何事实。"
             if successful
             else (
                 "当前没有调用数据接口，请直接使用你的通用知识回答。必须明确说明这是 AI 知识建议，"
@@ -180,14 +194,14 @@ class RuleBasedQueryPresenterAgent:
                 "当前没有可用的大模型回答，且我没有使用 Mock 景点、交通或酒店数据。"
                 "请确认 DeepSeek 服务后再试。"
             )
-        del query, entities
+        del entities
         if intent is Intent.WEATHER_QUERY:
             return self._weather(results)
         if intent is Intent.HOTEL_QUERY:
             return self._hotel(results)
         if intent is Intent.TRANSPORT_QUERY:
             return self._transport(results)
-        return self._poi(results)
+        return self._research(query, results)
 
     async def apresent(
         self,
@@ -236,13 +250,99 @@ class RuleBasedQueryPresenterAgent:
         return "\n".join(lines)
 
     @staticmethod
-    def _poi(results: dict[str, ToolResult]) -> str:
+    def _research(query: str, results: dict[str, ToolResult]) -> str:
+        research = results.get(ToolName.TRAVEL_RESEARCH.value)
+        xiaohongshu = results.get(ToolName.XIAOHONGSHU_RESEARCH.value)
+        lines = []
+        if xiaohongshu and xiaohongshu.success:
+            items = xiaohongshu.data.get("items", [])
+            detailed = [
+                item
+                for item in items
+                if item.get("summary")
+                and not str(item["summary"]).startswith("作者：")
+            ][:2]
+            lines.append(f"关于“{query}”，先看这次检索到的游客经验：")
+            if detailed:
+                lines.extend(
+                    f"- {item['title']}：{_compact_text(item['summary'], 90)}"
+                    for item in detailed
+                )
+            else:
+                lines.extend(f"- {item['title']}" for item in items[:3])
+            lines.append("这些是社区个人经历，体力、季节和路线不同会造成明显差异。")
+        if research and research.success:
+            items = research.data.get("items", [])[:4]
+            lines.append("官网与全网资料：")
+            lines.extend(
+                f"- {item['title']}：{item['url']}"
+                for item in items
+                if item.get("title") and item.get("url")
+            )
+        if xiaohongshu and xiaohongshu.success:
+            items = xiaohongshu.data.get("items", [])[:4]
+            lines.append(
+                f"小红书已搜索 {xiaohongshu.data.get('count', 0)} 篇，"
+                f"精读 {xiaohongshu.data.get('detail_count', 0)} 篇："
+            )
+            lines.extend(
+                f"- {item['title']}（{item.get('author', '未知作者')}，"
+                f"{item.get('likes', 0)} 赞）：{item['url']}"
+                for item in items
+                if item.get("title") and item.get("url")
+            )
+        if lines:
+            return "\n".join(lines)
         result = results.get(ToolName.POI_SEARCH.value)
         if not result or not result.success:
-            return "暂时没有可用的景点信息，请稍后再试。"
+            return "暂时没有可用的旅游资料，请稍后再试。"
         lines = ["以下是 MOCK 演示数据，可以先关注这些地方："]
         lines.extend(
             f"- {poi['name']}：{', '.join(poi.get('tags', []))}"
             for poi in result.data.get("candidates", [])[:5]
         )
         return "\n".join(lines)
+
+
+def _presenter_result_payload(name: str, result: ToolResult) -> dict:
+    payload = result.model_dump(mode="json")
+    if name not in {
+        ToolName.TRAVEL_RESEARCH.value,
+        ToolName.XIAOHONGSHU_RESEARCH.value,
+    }:
+        return payload
+    data = result.data
+    payload["data"] = {
+        "query": data.get("query"),
+        "count": data.get("count", 0),
+        "detail_count": data.get("detail_count", 0),
+        "items": [
+            {
+                key: (_compact_text(value, 500) if key == "summary" else value)
+                for key, value in item.items()
+                if key
+                in {
+                    "title",
+                    "url",
+                    "summary",
+                    "published_at",
+                    "source_tier",
+                    "authority_score",
+                    "author",
+                    "likes",
+                    "collects",
+                    "comments",
+                    "tags",
+                }
+            }
+            for item in data.get("items", [])[:6]
+        ],
+        "quality": data.get("quality", {}),
+        "platform_status": data.get("platform_status", {}),
+    }
+    return payload
+
+
+def _compact_text(value, limit: int) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    return text if len(text) <= limit else f"{text[:limit].rstrip()}..."

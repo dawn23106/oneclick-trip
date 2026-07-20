@@ -1160,6 +1160,8 @@ a {
 .result-message .agent-reply {
   color: var(--ink);
   white-space: pre-line;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .agent-weather {
@@ -1473,6 +1475,114 @@ a {
 
 .agent-tools .el-icon {
   color: var(--primary);
+}
+
+.agent-route-proof {
+  margin-top: 12px;
+  padding: 11px 0 9px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.route-proof-heading,
+.trip-route-proof-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.route-proof-heading > span,
+.trip-route-proof-heading > span {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--primary-dark);
+  background: var(--primary-soft);
+}
+
+.route-proof-heading > div,
+.trip-route-proof-heading > div {
+  min-width: 0;
+}
+
+.route-proof-heading small,
+.route-proof-heading strong,
+.trip-route-proof-heading small,
+.trip-route-proof-heading strong {
+  display: block;
+}
+
+.route-proof-heading small,
+.trip-route-proof-heading small {
+  color: var(--primary-dark);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.route-proof-heading small i {
+  width: 6px;
+  height: 6px;
+  display: inline-block;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+.route-proof-heading strong,
+.trip-route-proof-heading strong {
+  margin-top: 3px;
+  font-size: 12px;
+}
+
+.agent-route-proof ol {
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-route-proof li,
+.trip-route-legs > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  color: var(--ink-soft);
+  font-size: 9px;
+}
+
+.agent-route-proof li + li,
+.trip-route-legs > div + div {
+  border-top: 1px dashed var(--border);
+}
+
+.agent-route-proof li span,
+.trip-route-legs span {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  overflow-wrap: anywhere;
+}
+
+.agent-route-proof li strong,
+.trip-route-legs strong {
+  flex: 0 0 auto;
+  color: var(--ink);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.route-proof-note {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 8px;
 }
 
 .agent-plan-preview {
@@ -2189,6 +2299,22 @@ a {
 .trip-overview strong {
   margin-top: 3px;
   font-size: 12px;
+}
+
+.trip-route-proof {
+  margin: 18px 14px 0;
+  padding: 0 0 11px;
+  border-bottom: 1px solid var(--border);
+}
+
+.trip-route-legs {
+  margin-top: 8px;
+}
+
+.trip-route-proof > p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 8px;
 }
 
 .agent-note {
