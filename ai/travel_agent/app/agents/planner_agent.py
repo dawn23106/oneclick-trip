@@ -9,6 +9,7 @@ from typing import Protocol
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from app.agents.meal_planning import ensure_daily_meals
 from app.domain.models import (
     BudgetMode,
     CandidateSelection,
@@ -82,6 +83,9 @@ class LangChainPlannerAgent:
                     "候选中最低价城际交通、市内步行公交或共享助力车、泡面与基础饱腹餐、免费景点优先；"
                     "必须遵守 candidate_selection.selected_pois 中的 visit_date 和 estimated_duration_minutes，"
                     "生成逐日时间安排、交通衔接、住宿区域、费用汇总和必要说明。"
+                    "每天必须显式安排午餐和晚餐，item_type=FOOD；餐饮应结合当天景点所在区域推荐当地特色，"
+                    "避免为了吃饭跨区折返。若候选中没有餐饮，可用 AI 通用知识给出菜品或商圈建议，"
+                    "但 location_id、ticket_option_id 必须留空，并注明具体门店与营业时间待核实。"
                     "days 中每个项目都要有稳定 item_id、visit_start/end、travel_minutes、visit_minutes；"
                     "每天提供清楚的 title、summary，每个活动 description 说明体验重点与衔接建议。"
                     "开放时间、路线和价格来自第二阶段时必须标明为 AI 估算，不得声称实时、可购买或有库存。"
@@ -167,7 +171,7 @@ class LangChainPlannerAgent:
                 end_at = start_at + timedelta(minutes=visit_minutes)
                 item.item_id = f"D{day_index}-I{len(grounded_items) + 1}"
                 item.name = poi.name
-                item.item_type = RuleBasedPlannerAgent._item_type(poi.tags)
+                item.item_type = RuleBasedPlannerAgent._item_type(poi.tags, poi.name)
                 item.location_id = poi.poi_id
                 item.travel_minutes = travel_minutes
                 item.visit_minutes = visit_minutes
@@ -187,7 +191,13 @@ class LangChainPlannerAgent:
                 )
                 grounded_items.append(item)
                 cursor = end_at + timedelta(minutes=30)
-            day.items = grounded_items
+            day.items = ensure_daily_meals(
+                grounded_items,
+                day_index=day_index,
+                destination=phase1.destination,
+                entities=entities,
+                travel_date=travel_date,
+            )
 
         total_cost = RuleBasedPlannerAgent._estimate_cost(
             entities=entities,
@@ -263,7 +273,7 @@ class RuleBasedPlannerAgent:
                     ItineraryItem(
                         item_id=f"D{day_index}-I{item_index}",
                         name=poi.name,
-                        item_type=self._item_type(poi.tags),
+                        item_type=self._item_type(poi.tags, poi.name),
                         start_at=start_at if travel_date else None,
                         end_at=end_at if travel_date else None,
                         start_time=start_at.time(),
@@ -277,6 +287,13 @@ class RuleBasedPlannerAgent:
                     )
                 )
                 cursor = end_at + timedelta(minutes=60)
+            items = ensure_daily_meals(
+                items,
+                day_index=day_index,
+                destination=phase1.destination,
+                entities=entities,
+                travel_date=travel_date,
+            )
             days.append(
                 ItineraryDay(
                     day_index=day_index,
@@ -336,8 +353,13 @@ class RuleBasedPlannerAgent:
         return " + ".join(poi.name for poi in pois) if pois else "自由探索"
 
     @staticmethod
-    def _item_type(tags: list[str]) -> str:
-        if any(tag in {"美食", "餐饮", "小吃", "夜市", "咖啡"} for tag in tags):
+    def _item_type(tags: list[str], name: str = "") -> str:
+        food_name_keywords = (
+            "餐厅", "餐馆", "饭店", "火锅", "串串", "小吃", "面馆", "粉店", "咖啡"
+        )
+        if any(tag in {"餐饮", "小吃", "咖啡"} for tag in tags) or any(
+            keyword in name for keyword in food_name_keywords
+        ):
             return "FOOD"
         if any(tag in {"交通", "高铁", "飞机"} for tag in tags):
             return "TRANSPORT"

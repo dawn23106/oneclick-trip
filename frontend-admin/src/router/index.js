@@ -87,6 +87,12 @@ const routes = [
         name: 'TripPlanList',
         component: () => import('../views/TripPlanList.vue'),
         meta: { title: '行程订单', icon: 'List' }
+      },
+      {
+        path: 'bookings',
+        name: 'BookingList',
+        component: () => import('../views/BookingList.vue'),
+        meta: { title: '预订管理', icon: 'Tickets' }
       }
     ]
   },

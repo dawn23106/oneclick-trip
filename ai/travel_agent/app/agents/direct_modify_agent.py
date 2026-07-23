@@ -70,7 +70,8 @@ class LangChainDirectModifyAgent:
                     "提供联网研究证据时优先依据官方与可信来源；若证据不支持用户点名地点，"
                     "不得凭空补造该地点的营业状态、路线和价格。"
                     "保留 plan_id，version 在当前版本基础上加 1。"
-                    "hotel_area_id、transport_option_id、ticket_option_id 必须为空；价格只能是 AI 估算。"
+                    "未受修改影响的 hotel_area_id、transport_option_id、hotel_option_id 和 ticket_option_id"
+                    "必须从当前方案原样保留；只有被替换项目自己的 ticket_option_id 才清空。价格只能是 AI 估算。"
                     "只输出 JSON，不要使用 Markdown。输出必须符合以下 JSON Schema："
                     f"{json.dumps(TravelPlan.model_json_schema(), ensure_ascii=False)}"
                 )
@@ -110,7 +111,88 @@ class LangChainDirectModifyAgent:
         normalized = proposal.plan
         if normalized is None:
             raise ValueError("direct modifier did not return a plan")
-        return normalized.model_copy(update={"plan_id": current_plan.plan_id})
+        normalized = normalized.model_copy(update={"plan_id": current_plan.plan_id})
+        normalized = LangChainDirectModifyAgent._enforce_named_replacement(
+            normalized,
+            query=query,
+            current_plan=current_plan,
+            entities=entities,
+        )
+        return LangChainDirectModifyAgent._preserve_unaffected_options(
+            normalized,
+            current_plan,
+        )
+
+    @staticmethod
+    def _enforce_named_replacement(
+        plan: TravelPlan,
+        *,
+        query: str,
+        current_plan: TravelPlan,
+        entities: TravelEntities,
+    ) -> TravelPlan:
+        analyzer = RuleBasedModifyAnalyzerAgent()
+        analysis = analyzer.analyze(query, current_plan, entities)
+        request = analysis.request
+        if not request.replacement_name:
+            return plan
+        target_day = next(
+            (day for day in plan.days if day.day_index == request.target_day),
+            None,
+        )
+        if target_day and any(
+            request.replacement_name in item.name for item in target_day.items
+        ):
+            return plan
+        candidate = POICandidate(
+            poi_id="AI-REPLACEMENT",
+            name=request.replacement_name,
+            area="待核实",
+            tags=[],
+            suggested_duration_minutes=120,
+        )
+        modifier = RuleBasedModifyAgent()
+        result = modifier.apply(plan, analysis, entities, [candidate])
+        if not result.errors:
+            return result.plan
+        fallback = modifier.apply(
+            current_plan.model_copy(deep=True),
+            analysis,
+            entities,
+            [candidate],
+        )
+        if fallback.errors:
+            raise ValueError(",".join(fallback.errors))
+        fallback.plan.version = plan.version
+        fallback.plan.total_cost = plan.total_cost
+        return fallback.plan
+
+    @staticmethod
+    def _preserve_unaffected_options(
+        plan: TravelPlan,
+        current_plan: TravelPlan,
+    ) -> TravelPlan:
+        revised = plan.model_copy(deep=True)
+        revised.hotel_area_id = revised.hotel_area_id or current_plan.hotel_area_id
+        revised.transport_option_id = (
+            revised.transport_option_id or current_plan.transport_option_id
+        )
+        current_days = {day.day_index: day for day in current_plan.days}
+        for day in revised.days:
+            current_day = current_days.get(day.day_index)
+            if current_day is None:
+                continue
+            day.hotel_option_id = day.hotel_option_id or current_day.hotel_option_id
+            current_items = {
+                item.location_id: item
+                for item in current_day.items
+                if item.location_id
+            }
+            for item in day.items:
+                previous = current_items.get(item.location_id or "")
+                if previous and item.ticket_option_id is None:
+                    item.ticket_option_id = previous.ticket_option_id
+        return revised
 
 
 class RuleBasedDirectModifyAgent:
@@ -146,12 +228,6 @@ class RuleBasedDirectModifyAgent:
         if result.errors:
             raise ValueError(",".join(result.errors))
         result.plan.version = current_plan.version + 1
-        result.plan.hotel_area_id = None
-        result.plan.transport_option_id = None
-        for day in result.plan.days:
-            day.hotel_option_id = None
-            for item in day.items:
-                item.ticket_option_id = None
         return result.plan
 
     async def amodify(self, **kwargs) -> TravelPlan:

@@ -242,7 +242,7 @@ Phase 8 将有效方案保存为 `PersistedPlanState`，其中包含 `TravelPlan
 ## Checkpoint 与 Memory
 
 - 单元测试使用 `InMemorySaver`；本机运行使用 Redis，以 `conversation_id` 作为 `thread_id`。
-- 本机 ZenTao Redis 为 6.2 且没有 RedisJSON/RediSearch，因此使用 `PlainRedisSaver`；部署 Redis Stack 后可切换官方 `langgraph-checkpoint-redis`。
+- 本机普通 Redis 没有 RedisJSON/RediSearch，因此使用 `PlainRedisSaver`；默认保留 24 小时，并在读取会话时刷新 TTL。部署 Redis Stack 后可切换官方 `langgraph-checkpoint-redis`。
 - 长期偏好和 `PersistedPlanState` 版本存 MySQL，不把 Redis 当作永久业务数据库。
 - 当前明确需求覆盖长期偏好；该合并规则在 Phase 2 的 State Normalizer 中实现。
 - Human-in-the-loop 在 Booking Phase 使用 LangGraph `interrupt()`；恢复时继续使用同一个 `thread_id`。
@@ -285,12 +285,20 @@ travel_agent/
 建议 Python 3.13；本机 Phase 8 已在 Python 3.14.4、MySQL 8.0.42、Redis 6.2.16 和 Chroma 1.5.9 验证。
 
 ```powershell
-cd "C:\Users\20343\Documents\New project\oneclick-trip\ai\travel_agent"
+cd "F:\CodeProjects\projects\oneclick-trip\ai\travel_agent"
 uv venv --python 3.13 .venv
 uv sync --extra dev
 .\.venv\Scripts\python.exe scripts\bootstrap_infrastructure.py
 .\.venv\Scripts\python.exe -m pytest
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+仓库根目录的 `tools\start-oneclick-trip.ps1` 会优先启动 Redis Windows 服务；若没有服务，则会自动使用 `F:\DevTools\Redis\redis-server.exe` 并启用 AOF 持久化。相关配置：
+
+```dotenv
+REDIS_URL=redis://127.0.0.1:6379/0
+CHECKPOINT_TTL_MINUTES=1440
+CHECKPOINT_REFRESH_ON_READ=true
 ```
 
 接口：

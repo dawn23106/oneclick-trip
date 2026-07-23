@@ -46,10 +46,16 @@ def test_replace_poi_uses_direct_model_path_and_saves_v2() -> None:
     assert result["selected_tools"] == []
     assert result["tool_results"] == {}
     assert result["current_plan"].days[1].items[0].name == "熊猫基地"
+    assert result["current_plan"].hotel_area_id == first["current_plan"].hotel_area_id
+    assert (
+        result["current_plan"].transport_option_id
+        == first["current_plan"].transport_option_id
+    )
     all_location_ids = [
         item.location_id
         for day in result["current_plan"].days
         for item in day.items
+        if item.location_id
     ]
     assert len(all_location_ids) == len(set(all_location_ids))
 

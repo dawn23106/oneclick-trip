@@ -1,0 +1,108 @@
+<view class="ai-page">
+  <view class="ai-toolbar">
+    <view class="agent-identity">
+      <view class="agent-mark"><view class="agent-dot"></view></view>
+      <view><text class="agent-name">一键游 Agent</text><text class="agent-status">在线 · 随时为你规划</text></view>
+    </view>
+    <view class="toolbar-actions">
+      <button class="round-action" bindtap="newConversation" aria-label="新建会话">＋</button>
+      <button class="round-action" bindtap="openSessions" aria-label="历史会话">≡</button>
+    </view>
+  </view>
+
+  <scroll-view class="chat-scroll" scroll-y enhanced show-scrollbar="false" scroll-into-view="{{scrollTarget}}">
+    <view wx:if="{{messages.length === 0}}" class="welcome-panel">
+      <view class="welcome-mark"><view class="welcome-needle"></view></view>
+      <text class="welcome-kicker">AI TRAVEL AGENT</text>
+      <text class="welcome-title">这次想去哪里？</text>
+      <text class="welcome-copy">我会结合你的偏好，整理路线、预算、天气和每天的具体安排。</text>
+      <view class="starter-list">
+        <view wx:for="{{suggestions}}" wx:key="*this" class="starter-item" data-text="{{item}}" bindtap="useSuggestion">
+          <text>{{item}}</text><text>→</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:for="{{messages}}" wx:key="id" class="message-row {{item.role}}">
+      <view wx:if="{{item.role === 'assistant'}}" class="message-avatar">游</view>
+      <view class="message-wrap">
+        <view class="message-bubble {{item.error ? 'error-bubble' : ''}}">
+          <view wx:if="{{item.loading}}" class="thinking">
+            <view class="thinking-dots"><text></text><text></text><text></text></view>
+            <text class="thinking-stage">{{stage || '正在思考'}}</text>
+            <text class="thinking-detail">{{stageDetail}}</text>
+          </view>
+          <view wx:elif="{{item.error}}">
+            <text class="error-title">这次没有处理成功</text>
+            <text class="error-copy">{{item.error}}</text>
+            <button class="retry-button" data-index="{{index}}" bindtap="retryMessage">重新尝试</button>
+          </view>
+          <rich-text wx:elif="{{item.role === 'assistant'}}" class="markdown-body" nodes="{{item.html}}"></rich-text>
+          <text wx:else class="user-copy">{{item.text}}</text>
+        </view>
+        <view wx:if="{{item.actions.length}}" class="choice-panel">
+          <text wx:if="{{item.choiceKicker}}" class="choice-kicker">{{item.choiceKicker}}</text>
+          <text wx:if="{{item.choiceTitle}}" class="choice-title">{{item.choiceTitle}}</text>
+          <text class="choice-prompt">{{item.choicePrompt}}</text>
+          <view class="choice-list">
+            <button
+              wx:for="{{item.actions}}"
+              wx:for-item="choice"
+              wx:key="id"
+              class="choice-button {{choice.recommended ? 'recommended' : ''}} {{item.actionSelected === choice.id ? 'selected' : ''}} {{(sending || item.actionSelected) && item.actionSelected !== choice.id ? 'disabled' : ''}}"
+              data-message-id="{{item.id}}"
+              data-action-id="{{choice.id}}"
+              data-text="{{choice.message}}"
+              disabled="{{sending || item.actionSelected}}"
+              bindtap="chooseAction"
+            >
+              <text>{{choice.label}}</text>
+              <text wx:if="{{item.actionSelected === choice.id}}" class="choice-tag">已选择</text>
+              <text wx:elif="{{choice.recommended}}" class="choice-tag">推荐</text>
+              <text wx:else class="choice-arrow">›</text>
+            </button>
+          </view>
+        </view>
+        <view wx:if="{{item.planCard && !item.loading}}" class="plan-result-card">
+          <view class="plan-result-head">
+            <view><text class="plan-result-kicker">AI 行程已生成</text><text class="plan-result-title">{{item.planCard.title}}</text></view>
+            <text class="plan-result-status">已保存</text>
+          </view>
+          <text class="plan-result-meta">{{item.planCard.meta}}</text>
+          <view class="plan-result-days">
+            <view wx:for="{{item.planCard.days}}" wx:for-item="planDay" wx:key="dayIndex" class="plan-result-day">
+              <text class="plan-day-label">DAY {{planDay.dayIndex}}</text>
+              <view class="plan-day-copy"><text class="plan-day-title">{{planDay.title}}</text><text class="plan-day-items">{{planDay.items}}</text></view>
+            </view>
+          </view>
+          <button class="plan-result-button" data-record-id="{{item.planRecordId}}" bindtap="openSavedPlan">查看完整行程</button>
+        </view>
+        <view wx:elif="{{item.savedPlan && !item.loading}}" class="plan-saved" bindtap="goTrips"><text>行程已保存</text><text>查看我的行程 →</text></view>
+        <text class="message-time">{{item.time}}</text>
+      </view>
+    </view>
+    <view id="chat-bottom" class="chat-bottom"></view>
+  </scroll-view>
+
+  <view class="composer">
+    <view class="composer-box">
+      <textarea value="{{input}}" bindinput="onInput" bindconfirm="sendInput" confirm-type="send" confirm-hold placeholder="继续补充时间、预算或偏好…" maxlength="500" auto-height disabled="{{sending}}" />
+      <button class="composer-send {{sending || !input ? 'disabled' : ''}}" bindtap="sendInput" disabled="{{sending || !input}}">{{sending ? '···' : '↑'}}</button>
+    </view>
+    <text class="composer-note">AI 建议仅供参考，预订前请核对实时信息</text>
+  </view>
+
+  <view wx:if="{{showSessions}}" class="session-mask" bindtap="closeSessions"></view>
+  <view class="session-drawer {{showSessions ? 'open' : ''}}">
+    <view class="drawer-head"><view><text class="drawer-title">历史会话</text><text class="drawer-subtitle">继续之前的旅行灵感</text></view><button bindtap="closeSessions">×</button></view>
+    <button class="secondary-button new-session" bindtap="newConversation">＋ 新建一段会话</button>
+    <scroll-view class="session-list" scroll-y>
+      <view wx:if="{{sessionsLoading}}" class="session-loading">正在加载…</view>
+      <view wx:elif="{{conversations.length === 0}}" class="session-empty">还没有历史会话</view>
+      <view wx:for="{{conversations}}" wx:key="conversationId" class="session-item {{item.conversationId === conversationId ? 'active' : ''}}" data-id="{{item.conversationId}}" bindtap="selectConversation">
+        <view class="session-copy"><text class="session-title">{{item.title || '新的旅行计划'}}</text><text class="session-preview">{{item.lastMessagePreview || '开始一段新的对话'}}</text></view>
+        <view class="session-side"><text>{{item.timeLabel}}</text><button class="session-delete" data-id="{{item.conversationId}}" catchtap="deleteConversation">删除</button></view>
+      </view>
+    </scroll-view>
+  </view>
+</view>

@@ -16,8 +16,10 @@ tools/*.log
 *.log
 logs/
 .runtime-logs/
+.runtime-data/
 .playwright-cli/
 output/
+miniprogram/project.private.config.json
 
 # Local-only credentials and machine-specific config
 .env

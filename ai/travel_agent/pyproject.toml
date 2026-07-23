@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11,<3.15"
 dependencies = [
     "fastapi>=0.139,<0.140",
-    "httpx>=0.28,<1",
+    "httpx[socks]>=0.28,<1",
     "huggingface-hub>=1.0,<2",
     "jieba>=0.42,<0.43",
     "aiomysql>=0.3,<0.4",

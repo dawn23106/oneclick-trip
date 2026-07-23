@@ -1,0 +1,42 @@
+.login-page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: calc(36rpx + env(safe-area-inset-top)) 38rpx 40rpx;
+  background: #f1f8f3;
+}
+
+.login-page::before {
+  position: absolute;
+  top: -160rpx;
+  right: -240rpx;
+  width: 620rpx;
+  height: 620rpx;
+  border: 90rpx solid rgba(47, 138, 101, .08);
+  border-radius: 50%;
+  content: '';
+}
+
+.brand-row { display: flex; align-items: center; gap: 16rpx; }
+.brand-mark { position: relative; width: 64rpx; height: 64rpx; border-radius: 50%; background: #23684d; }
+.brand-mark::after { position: absolute; inset: 13rpx; border: 2rpx solid rgba(255,255,255,.55); border-radius: 50%; content: ''; }
+.compass-needle { position: absolute; z-index: 1; top: 17rpx; left: 28rpx; width: 8rpx; height: 30rpx; border-radius: 8rpx 8rpx 2rpx 2rpx; background: #fff; transform: rotate(38deg); }
+.brand-name { font-size: 34rpx; font-weight: 800; letter-spacing: 3rpx; }
+
+.hero-copy { position: relative; margin: 92rpx 4rpx 54rpx; }
+.eyebrow { display: block; margin-bottom: 20rpx; color: #2f8a65; font-size: 21rpx; font-weight: 700; letter-spacing: 4rpx; }
+.hero-title { max-width: 610rpx; font-size: 56rpx; font-weight: 800; line-height: 1.18; letter-spacing: -3rpx; }
+.hero-title text { color: #267254; }
+.hero-desc { display: block; max-width: 600rpx; margin-top: 26rpx; color: #65766d; font-size: 28rpx; line-height: 1.75; }
+
+.login-card { position: relative; padding: 32rpx; border: 1rpx solid #dbe8e0; border-radius: 34rpx; background: rgba(255,255,255,.96); box-shadow: 0 22rpx 70rpx rgba(29,75,55,.10); }
+.mode-tabs { display: flex; gap: 12rpx; margin-bottom: 28rpx; padding: 7rpx; border-radius: 18rpx; background: #f0f5f2; }
+.mode-tab { flex: 1; height: 68rpx; border-radius: 14rpx; color: #7a8880; text-align: center; font-weight: 600; line-height: 68rpx; }
+.mode-tab.active { background: #fff; color: #23684d; box-shadow: 0 5rpx 16rpx rgba(35,104,77,.09); }
+.field { margin-top: 24rpx; }
+.field-label { display: block; margin: 0 0 10rpx 4rpx; color: #53635a; font-size: 24rpx; font-weight: 600; }
+.field input { height: 92rpx; padding: 0 24rpx; border: 1rpx solid #dce7e1; border-radius: 20rpx; background: #fbfdfc; }
+.error-text { margin: 20rpx 4rpx -4rpx; color: #c84c43; font-size: 25rpx; }
+.login-button { margin-top: 28rpx; }
+.demo-button { height: 66rpx; margin-top: 10rpx; background: transparent; color: #2f7558; font-size: 25rpx; line-height: 66rpx; }
+.login-note { display: block; margin-top: 28rpx; color: #8d9992; font-size: 21rpx; text-align: center; }

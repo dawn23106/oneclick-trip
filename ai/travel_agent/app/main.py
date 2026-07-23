@@ -57,7 +57,11 @@ def create_app(
 
     backend = checkpoint_backend
     if backend is None and configured_settings.use_external_infrastructure and configured_settings.redis_url:
-        candidate = PlainRedisCheckpointBackend(configured_settings.redis_url)
+        candidate = PlainRedisCheckpointBackend(
+            configured_settings.redis_url,
+            ttl_minutes=configured_settings.checkpoint_ttl_minutes,
+            refresh_on_read=configured_settings.checkpoint_refresh_on_read,
+        )
         try:
             candidate.ping()
             backend = candidate

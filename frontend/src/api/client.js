@@ -174,5 +174,21 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ conversationId: ensureAiConversationId(), confirmed })
     })
+  },
+  bookings(status = '') {
+    const query = status ? `?status=${encodeURIComponent(status)}` : ''
+    return apiRequest(`/api/bookings${query}`)
+  },
+  createBooking(payload) {
+    return apiRequest('/api/bookings', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    })
+  },
+  confirmBooking(draftId) {
+    return apiRequest(`/api/bookings/${encodeURIComponent(draftId)}/confirm`, { method: 'POST' })
+  },
+  cancelBooking(draftId) {
+    return apiRequest(`/api/bookings/${encodeURIComponent(draftId)}/cancel`, { method: 'POST' })
   }
 }

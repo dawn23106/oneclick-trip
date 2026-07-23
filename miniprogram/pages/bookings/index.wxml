@@ -1,0 +1,38 @@
+<view class="bookings-page page-shell">
+  <view class="booking-head">
+    <text class="booking-kicker">BOOKING DRAFTS</text>
+    <text class="booking-title">预订清单</text>
+    <text class="booking-copy">这里保存从 AI 行程选中的酒店、交通和门票；待确认草稿 15 分钟后自动过期。</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="booking-loading">
+    <view wx:for="{{placeholderRows}}" wx:key="*this" class="booking-card card"><view class="skeleton line wide"></view><view class="skeleton line"></view><view class="skeleton line short"></view></view>
+  </view>
+
+  <view wx:elif="{{error}}" class="card empty-state">
+    <view class="empty-mark">!</view><view class="empty-title">清单加载失败</view><view class="empty-copy">{{error}}</view>
+    <button class="secondary-button" bindtap="loadBookings">重新加载</button>
+  </view>
+
+  <view wx:elif="{{!bookings.length}}" class="card empty-state">
+    <view class="empty-mark">单</view><view class="empty-title">还没有预订草稿</view><view class="empty-copy">打开一份带有真实可选项的 AI 行程，将酒店、交通或门票加入这里。</view>
+    <button class="secondary-button" bindtap="goBack">返回行程</button>
+  </view>
+
+  <view wx:else class="booking-list">
+    <view wx:for="{{bookings}}" wx:key="draftId" class="booking-card card">
+      <view class="card-top">
+        <view><text class="destination">{{item.destinationText}}</text><text class="draft-id">{{item.draftId}}</text></view>
+        <text class="status status-{{item.status}}">{{item.statusLabel}}</text>
+      </view>
+      <view class="booking-types">{{item.typeText}}</view>
+      <view class="booking-meta"><text>创建时间</text><text>{{item.createdText}}</text></view>
+      <view wx:if="{{item.status === 'pending_confirmation'}}" class="booking-meta expiry"><text>确认截止</text><text>{{item.expiresText}}</text></view>
+      <view class="option-box"><text class="option-label">方案选项</text><text class="option-value">{{item.optionText}}</text></view>
+      <view wx:if="{{item.status === 'pending_confirmation'}}" class="booking-actions">
+        <button class="cancel-button" data-id="{{item.draftId}}" disabled="{{actionId}}" bindtap="cancelBooking">取消</button>
+        <button class="confirm-button" data-id="{{item.draftId}}" loading="{{actionId === item.draftId}}" disabled="{{actionId}}" bindtap="confirmBooking">确认预订</button>
+      </view>
+    </view>
+  </view>
+</view>

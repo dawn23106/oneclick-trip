@@ -108,7 +108,10 @@ function Start-WindowsServiceForPort {
     param(
         [Parameter(Mandatory = $true)][string]$DisplayLabel,
         [Parameter(Mandatory = $true)][int]$Port,
-        [Parameter(Mandatory = $true)][string[]]$ServiceNames
+        [Parameter(Mandatory = $true)][string[]]$ServiceNames,
+        [string]$PortableExecutable,
+        [string]$PortableWorkingDirectory,
+        [string[]]$PortableArguments = @()
     )
 
     if (Test-TcpPort -Port $Port) {
@@ -132,7 +135,19 @@ function Start-WindowsServiceForPort {
         }
     }
 
-    throw "$DisplayLabel did not become available on port $Port."
+    if ($PortableExecutable -and (Test-Path -LiteralPath $PortableExecutable)) {
+        Write-Step "Starting portable $DisplayLabel..."
+        Start-LoggedProcess `
+            -Name $DisplayLabel.ToLowerInvariant() `
+            -FilePath $PortableExecutable `
+            -ArgumentList $PortableArguments `
+            -WorkingDirectory $PortableWorkingDirectory | Out-Null
+        if (Wait-TcpPort -Port $Port -TimeoutSeconds 15) {
+            return
+        }
+    }
+
+    throw "$DisplayLabel did not become available on port $Port. Install it as a Windows service, provide a portable executable, or run docker compose up -d redis."
 }
 
 function Add-ServiceResult {
@@ -162,18 +177,37 @@ $results = New-Object 'System.Collections.Generic.List[object]'
 try {
     Write-Step 'Checking database services...'
     Start-WindowsServiceForPort -DisplayLabel 'MySQL' -Port 3306 -ServiceNames @('mysql', 'mysqlzt', 'MySQL80')
-    Start-WindowsServiceForPort -DisplayLabel 'Redis' -Port 6379 -ServiceNames @('rediszt3', 'Redis')
+    $redisExecutable = @(
+        'F:\DevTools\Redis\redis-server.exe',
+        'C:\Program Files\Redis\redis-server.exe',
+        (Join-Path $repoRoot '.tools\redis\redis-server.exe')
+    ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    $redisDataRoot = Join-Path $repoRoot '.runtime-data\redis'
+    New-Item -ItemType Directory -Path $redisDataRoot -Force | Out-Null
+    Start-WindowsServiceForPort `
+        -DisplayLabel 'Redis' `
+        -Port 6379 `
+        -ServiceNames @('rediszt3', 'Redis') `
+        -PortableExecutable $redisExecutable `
+        -PortableWorkingDirectory $redisDataRoot `
+        -PortableArguments @('--bind', '127.0.0.1', '--port', '6379', '--appendonly', 'yes', '--dir', $redisDataRoot)
 
     $pythonPath = Join-Path $repoRoot 'ai\travel_agent\.venv\Scripts\python.exe'
     if (-not (Test-Path -LiteralPath $pythonPath)) {
         throw "Python virtual environment is missing: $pythonPath"
     }
+    if (-not $env:DEEPSEEK_API_KEY) {
+        $userDeepSeekKey = [Environment]::GetEnvironmentVariable('DEEPSEEK_API_KEY', 'User')
+        if ($userDeepSeekKey) {
+            $env:DEEPSEEK_API_KEY = $userDeepSeekKey
+        }
+    }
 
     $mavenPath = Resolve-CommandPath `
-        -PreferredPath 'C:\develop\apache-maven-3.9.11\bin\mvn.cmd' `
+        -PreferredPath 'F:\IDEs\IntelliJ IDEA 2026.1\plugins\maven\lib\maven3\bin\mvn.cmd' `
         -CommandName 'mvn.cmd'
     $npmPath = Resolve-CommandPath `
-        -PreferredPath 'C:\develop\npm.cmd' `
+        -PreferredPath 'F:\DevTools\nodejs\npm.cmd' `
         -CommandName 'npm.cmd'
 
     if (-not (Test-TcpPort -Port 8000)) {
@@ -187,7 +221,7 @@ try {
     }
 
     if (-not (Test-TcpPort -Port 8080)) {
-        $jdkHome = 'C:\Users\20343\.jdks\ms-17.0.17'
+        $jdkHome = 'C:\Users\ASUS\.jdks\ms-17.0.19'
         $previousJavaHome = $env:JAVA_HOME
         $previousPath = $env:Path
         try {

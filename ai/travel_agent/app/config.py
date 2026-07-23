@@ -26,6 +26,8 @@ class Settings:
     business_backend: str
     java_backend_base_url: str
     java_internal_service_secret: str
+    checkpoint_ttl_minutes: int = 1440
+    checkpoint_refresh_on_read: bool = True
     chroma_server_url: str | None = None
     embedding_backend: str = "bge-small-zh-v1.5"
     bge_model_directory: Path = PROJECT_ROOT / ".data/models/bge-small-zh-v1.5"
@@ -47,6 +49,8 @@ class Settings:
 
     @property
     def use_external_infrastructure(self) -> bool:
+        # auto enables persistent knowledge/RAG services while still allowing
+        # Redis or business storage to fall back during local development.
         return self.infra_mode in {"auto", "external"}
 
     @property
@@ -67,6 +71,12 @@ def load_settings(env_file: Path | None = None) -> Settings:
         infra_mode=os.getenv("INFRA_MODE", "memory").lower(),
         mysql_dsn=os.getenv("MYSQL_DSN"),
         redis_url=os.getenv("REDIS_URL"),
+        checkpoint_ttl_minutes=max(
+            1, int(os.getenv("CHECKPOINT_TTL_MINUTES", "1440"))
+        ),
+        checkpoint_refresh_on_read=os.getenv(
+            "CHECKPOINT_REFRESH_ON_READ", "true"
+        ).lower() in {"1", "true", "yes", "on"},
         chroma_persist_directory=chroma_path,
         chroma_collection=os.getenv("CHROMA_COLLECTION", "travel_knowledge"),
         deepseek_api_key=os.getenv("DEEPSEEK_API_KEY"),

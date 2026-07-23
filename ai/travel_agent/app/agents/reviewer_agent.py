@@ -81,13 +81,21 @@ class RuleBasedReviewerAgent:
                 issues.append(f"EMPTY_DAY:{day.day_index}")
                 suggestions.append(f"为第 {day.day_index} 天补充合理活动或缩短总天数。")
                 continue
+            primary_items = [
+                item
+                for item in day.items
+                if (item.item_type or "").upper() != "FOOD"
+            ]
             active_minutes = sum(
-                item.travel_minutes + item.visit_minutes for item in day.items
+                item.travel_minutes + item.visit_minutes for item in primary_items
             )
-            if len(day.items) > 3 or active_minutes > 600:
+            if len(primary_items) > 3 or active_minutes > 600:
                 issues.append(f"PACE_TOO_FAST:{day.day_index}")
                 suggestions.append(f"降低第 {day.day_index} 天的景点数量或交通耗时。")
-            if preferences.pace in {"懒散", "轻松", "slow", "relaxed"} and len(day.items) > 2:
+            if (
+                preferences.pace in {"懒散", "轻松", "slow", "relaxed"}
+                and len(primary_items) > 2
+            ):
                 issues.append(f"PACE_MISMATCH:{day.day_index}")
                 suggestions.append(f"第 {day.day_index} 天最多安排两个主要活动。")
 

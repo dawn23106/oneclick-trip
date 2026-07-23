@@ -1,0 +1,40 @@
+<view class="login-page">
+  <view class="brand-row">
+    <view class="brand-mark"><view class="compass-needle"></view></view>
+    <text class="brand-name">一键游</text>
+  </view>
+
+  <view class="hero-copy">
+    <text class="eyebrow">AI TRAVEL COMPANION</text>
+    <view class="hero-title">把旅行想法，<text>变成可出发的行程</text></view>
+    <text class="hero-desc">告诉我目的地、时间和偏好，剩下的路线、预算与安排交给一键游。</text>
+  </view>
+
+  <view class="login-card">
+    <view class="mode-tabs">
+      <view class="mode-tab {{mode === 'login' ? 'active' : ''}}" data-mode="login" bindtap="switchMode">登录</view>
+      <view class="mode-tab {{mode === 'register' ? 'active' : ''}}" data-mode="register" bindtap="switchMode">注册</view>
+    </view>
+
+    <view wx:if="{{mode === 'register'}}" class="field">
+      <text class="field-label">昵称</text>
+      <input value="{{form.nickname}}" data-field="nickname" bindinput="onInput" placeholder="旅行中怎么称呼你" maxlength="32" />
+    </view>
+    <view class="field">
+      <text class="field-label">用户名</text>
+      <input value="{{form.username}}" data-field="username" bindinput="onInput" placeholder="请输入用户名" maxlength="32" />
+    </view>
+    <view class="field">
+      <text class="field-label">密码</text>
+      <input value="{{form.password}}" data-field="password" bindinput="onInput" placeholder="请输入密码" password maxlength="32" confirm-type="done" bindconfirm="submit" />
+    </view>
+
+    <view wx:if="{{error}}" class="error-text">{{error}}</view>
+    <button class="primary-button login-button" loading="{{loading}}" disabled="{{loading}}" bindtap="submit">
+      {{mode === 'login' ? '进入一键游' : '创建账号'}}
+    </button>
+    <button wx:if="{{mode === 'login'}}" class="demo-button" bindtap="fillDemo">使用演示账号</button>
+  </view>
+
+  <text class="login-note">登录即表示你同意服务条款与隐私政策</text>
+</view>

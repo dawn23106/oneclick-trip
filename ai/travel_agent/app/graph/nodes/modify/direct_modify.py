@@ -45,6 +45,8 @@ def make_direct_modify_node(agent: DirectModifyAgent) -> Runnable[TravelState, T
                     for item in day.items
                     if item.location_id
                 ],
+                hotel_area_id=plan.hotel_area_id,
+                transport_option_id=plan.transport_option_id,
                 reasons=[
                     "已参考联网研究资料。"
                     if _research_context(state)

@@ -82,6 +82,13 @@ def test_rule_agent_extracts_transport_direction_in_text_order() -> None:
     assert decision.entities.destination == "上海"
 
 
+def test_rule_agent_treats_generate_city_as_trip_planning() -> None:
+    decision = RuleBasedIntentAgent().classify("生成北京")
+
+    assert decision.intent is Intent.TRIP_PLAN
+    assert decision.entities.destination == "北京"
+
+
 def test_rule_agent_extracts_multiple_read_only_intents() -> None:
     decision = RuleBasedIntentAgent().classify(
         "查成都明天天气，顺便推荐两家酒店"

@@ -9,6 +9,7 @@ from typing import Protocol
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from app.agents.meal_planning import ensure_daily_meals, looks_like_food
 from app.domain.models import (
     DirectPlanProposal,
     ItineraryDay,
@@ -79,6 +80,9 @@ class LangChainDirectPlannerAgent:
                     "本次明确需求优先于长期偏好。预算明显无法覆盖基本交通住宿时 feasible=false，plan=null，"
                     "message 用自然中文解释并给 suggested_budget；否则 feasible=true 并生成完整 TravelPlan。"
                     "方案必须严格满足天数，每天安排合理时间，不重复景点，total_cost 为保守的 AI 估算。"
+                    "每天必须把午餐和晚餐作为独立 ItineraryItem 写入，item_type 必须为 FOOD；"
+                    "优先推荐目的地特色菜或小吃，并把用餐区域安排在当天前后景点附近，说明这样衔接的理由、"
+                    "预计用餐时长和人均费用。餐饮建议来自 AI 通用知识，location_id 和 ticket_option_id 留空。"
                     "hotel_area_id、transport_option_id、ticket_option_id 全部留空，因为没有真实供应商报价。"
                     "只输出 JSON，不要使用 Markdown。输出必须符合以下 JSON Schema："
                     f"{json.dumps(DirectPlanProposal.model_json_schema(), ensure_ascii=False)}"
@@ -132,7 +136,9 @@ class LangChainDirectPlannerAgent:
                 end = start + timedelta(minutes=visit_minutes)
                 index = len(normalized_items) + 1
                 item.item_id = f"D{day_index}-I{index}"
-                item.location_id = f"AI-POI-{day_index}-{index}"
+                is_food = looks_like_food(item)
+                item.item_type = "FOOD" if is_food else (item.item_type or "SPOT")
+                item.location_id = None if is_food else f"AI-POI-{day_index}-{index}"
                 item.ticket_option_id = None
                 item.travel_minutes = travel_minutes
                 item.visit_minutes = visit_minutes
@@ -143,7 +149,13 @@ class LangChainDirectPlannerAgent:
                 item.description = cls._knowledge_description(item.description)
                 normalized_items.append(item)
                 cursor = end + timedelta(minutes=60)
-            day.items = normalized_items
+            day.items = ensure_daily_meals(
+                normalized_items,
+                day_index=day_index,
+                destination=entities.destination or plan.destination or "目的地",
+                entities=entities,
+                travel_date=day.date,
+            )
             day.title = day.title or f"第 {day_index} 天"
         assumptions = list(dict.fromkeys([
             *plan.assumptions,
@@ -212,23 +224,30 @@ class RuleBasedDirectPlannerAgent:
         for index in range(1, days_count + 1):
             start = time(hour=9)
             end = time(hour=11)
+            items = [
+                ItineraryItem(
+                    item_id=f"D{index}-I1",
+                    name=f"第 {index} 天{preference_hint}体验",
+                    start_time=start,
+                    end_time=end,
+                    location_id=f"AI-POI-{index}-1",
+                    description="离线兜底建议，具体地点需核实。",
+                    travel_minutes=30,
+                    visit_minutes=120,
+                )
+            ]
+            items = ensure_daily_meals(
+                items,
+                day_index=index,
+                destination=entities.destination or "目的地",
+                entities=entities,
+            )
             days.append(
                 ItineraryDay(
                     day_index=index,
                     title=f"第 {index} 天：当地体验",
                     summary="等待大模型或真实数据源补充具体地点。",
-                    items=[
-                        ItineraryItem(
-                            item_id=f"D{index}-I1",
-                            name=f"第 {index} 天{preference_hint}体验",
-                            start_time=start,
-                            end_time=end,
-                            location_id=f"AI-POI-{index}-1",
-                            description="离线兜底建议，具体地点需核实。",
-                            travel_minutes=30,
-                            visit_minutes=120,
-                        )
-                    ],
+                    items=items,
                 )
             )
         key = sha1(conversation_id.encode("utf-8")).hexdigest()[:12].upper()

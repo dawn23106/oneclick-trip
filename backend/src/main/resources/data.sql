@@ -2,7 +2,12 @@ INSERT INTO sys_user (id, username, password_hash, nickname, avatar_url, role, s
 VALUES
   (1, 'admin', '{noop}123456', '管理员', 'avatar-compass', 'ADMIN', 1),
   (2, 'user', '{noop}123456', '旅行者', 'avatar-backpack', 'USER', 1)
-ON DUPLICATE KEY UPDATE role = VALUES(role), status = VALUES(status);
+ON DUPLICATE KEY UPDATE
+  password_hash = VALUES(password_hash),
+  nickname = VALUES(nickname),
+  avatar_url = VALUES(avatar_url),
+  role = VALUES(role),
+  status = VALUES(status);
 
 INSERT INTO city (id, name, province, summary, best_season, image_url, sort_order)
 VALUES
@@ -10,7 +15,13 @@ VALUES
   (2, '杭州', '浙江', '西湖、灵隐寺和龙井村适合慢节奏城市自然游。', '3-5月、9-10月', NULL, 2),
   (3, '西安', '陕西', '古都文化和碳水美食密度高，适合历史路线。', '3-5月、9-11月', NULL, 3),
   (4, '大理', '云南', '苍山洱海和古城生活感强，适合放松度假。', '全年适合，3-5月更舒适', NULL, 4)
-ON DUPLICATE KEY UPDATE summary = VALUES(summary), best_season = VALUES(best_season), image_url = VALUES(image_url);
+ON DUPLICATE KEY UPDATE
+  name = VALUES(name),
+  province = VALUES(province),
+  summary = VALUES(summary),
+  best_season = VALUES(best_season),
+  image_url = VALUES(image_url),
+  sort_order = VALUES(sort_order);
 
 INSERT INTO scenic_spot (id, city_id, name, address, summary, ticket_price, open_time, play_hours, rating, tags, sort_order)
 VALUES
@@ -24,7 +35,17 @@ VALUES
   (8, 3, '西安城墙', '西安市碑林区南大街', '可骑行看古城轮廓，傍晚体验更好。', 54, '08:00-22:00', 2.5, 4.7, '骑行,夜景', 2),
   (9, 4, '洱海生态廊道', '大理市洱海沿线', '适合骑行、拍照和轻松散步。', 0, '全天开放', 4.0, 4.8, '湖景,骑行', 1),
   (10, 4, '大理古城', '大理市一塔路42号', '适合夜间散步和吃饭，节奏轻松。', 0, '全天开放', 2.5, 4.5, '古城,美食', 2)
-ON DUPLICATE KEY UPDATE summary = VALUES(summary), ticket_price = VALUES(ticket_price), rating = VALUES(rating);
+ON DUPLICATE KEY UPDATE
+  city_id = VALUES(city_id),
+  name = VALUES(name),
+  address = VALUES(address),
+  summary = VALUES(summary),
+  ticket_price = VALUES(ticket_price),
+  open_time = VALUES(open_time),
+  play_hours = VALUES(play_hours),
+  rating = VALUES(rating),
+  tags = VALUES(tags),
+  sort_order = VALUES(sort_order);
 
 INSERT INTO food (id, city_id, name, category, summary, recommended_area, avg_price, image_url, sort_order)
 VALUES
@@ -36,7 +57,15 @@ VALUES
   (6, 3, '羊肉泡馍', '正餐', '适合晚餐慢慢吃，注意分量较足。', '钟楼、小寨', 55, NULL, 2),
   (7, 4, '菌子火锅', '云南特色', '适合晚餐，雨季要选择正规餐厅。', '大理古城', 110, NULL, 1),
   (8, 4, '乳扇与鲜花饼', '轻食小吃', '适合古城散步时穿插体验。', '大理古城、喜洲', 35, NULL, 2)
-ON DUPLICATE KEY UPDATE summary = VALUES(summary), avg_price = VALUES(avg_price), image_url = VALUES(image_url);
+ON DUPLICATE KEY UPDATE
+  city_id = VALUES(city_id),
+  name = VALUES(name),
+  category = VALUES(category),
+  summary = VALUES(summary),
+  recommended_area = VALUES(recommended_area),
+  avg_price = VALUES(avg_price),
+  image_url = VALUES(image_url),
+  sort_order = VALUES(sort_order);
 
 UPDATE food SET image_url = 'oneclick-trip-assets/hangzhou-longjing-snacks.png' WHERE id = 3;
 UPDATE food SET image_url = 'oneclick-trip-assets/hangzhou-pianerchuan.png' WHERE id = 4;
@@ -52,7 +81,14 @@ VALUES
   (3, 2, '湖滨轻奢酒店', '西湖湖滨', '适合西湖路线，步行和打车都方便。', 'HIGH', 620, 4.7),
   (4, 3, '钟楼精选酒店', '钟楼/回民街', '适合古城墙和美食路线。', 'MEDIUM', 330, 4.5),
   (5, 4, '洱海边度假民宿', '洱海生态廊道', '适合慢节奏度假和看日出。', 'MEDIUM', 460, 4.6)
-ON DUPLICATE KEY UPDATE summary = VALUES(summary), avg_price = VALUES(avg_price), rating = VALUES(rating);
+ON DUPLICATE KEY UPDATE
+  city_id = VALUES(city_id),
+  name = VALUES(name),
+  area = VALUES(area),
+  summary = VALUES(summary),
+  price_level = VALUES(price_level),
+  avg_price = VALUES(avg_price),
+  rating = VALUES(rating);
 
 INSERT INTO trip_template (id, city_id, title, days, budget_level, pace, summary, cover_url)
 VALUES
@@ -60,4 +96,11 @@ VALUES
   (2, 2, '杭州2日西湖慢游', 2, 'MEDIUM', 'RELAXED', '西湖、灵隐寺、龙井茶村，适合轻松城市自然游。', NULL),
   (3, 3, '西安3日古都文化游', 3, 'MEDIUM', 'COMPACT', '兵马俑、城墙、大唐不夜城和碳水美食。', NULL),
   (4, 4, '大理4日慢生活', 4, 'MEDIUM', 'RELAXED', '洱海骑行、古城散步、喜洲和苍山轻度游。', NULL)
-ON DUPLICATE KEY UPDATE summary = VALUES(summary), cover_url = VALUES(cover_url);
+ON DUPLICATE KEY UPDATE
+  city_id = VALUES(city_id),
+  title = VALUES(title),
+  days = VALUES(days),
+  budget_level = VALUES(budget_level),
+  pace = VALUES(pace),
+  summary = VALUES(summary),
+  cover_url = VALUES(cover_url);

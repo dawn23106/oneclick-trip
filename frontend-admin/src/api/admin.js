@@ -246,6 +246,20 @@ export function deleteTripPlan(id) {
   return request(`${BASE}/trip-plans/${id}`, { method: 'DELETE' })
 }
 
+// ===== 预订草稿管理 =====
+export function fetchBookings(params = {}) {
+  const query = new URLSearchParams(params).toString()
+  return request(`${BASE}/bookings?${query}`)
+}
+
+export function fetchBookingStats() {
+  return request(`${BASE}/bookings/stats`)
+}
+
+export function fetchBooking(draftId) {
+  return request(`${BASE}/bookings/${encodeURIComponent(draftId)}`)
+}
+
 // ===== 知识库更新 =====
 export function fetchKnowledgeStats() {
   return request(`${BASE}/knowledge/stats`)

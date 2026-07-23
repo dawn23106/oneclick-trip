@@ -171,6 +171,10 @@ class RuleBasedIntentAgent:
         # 不能被误判为对旧方案的修改。
         if any(word in text for word in ("规划", "旅游方案", "几日游", "日游", "天游")):
             return Intent.TRIP_PLAN
+        if any(place in text for place in self.DESTINATION_NAMES) and any(
+            word in text for word in ("生成", "做一份", "做一个", "来一份", "出一份")
+        ):
+            return Intent.TRIP_PLAN
         if any(
             word in text
             for word in (

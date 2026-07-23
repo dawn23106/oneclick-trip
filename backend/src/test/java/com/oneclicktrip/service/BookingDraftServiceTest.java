@@ -54,6 +54,15 @@ class BookingDraftServiceTest {
                 .hasMessageContaining("幂等键不匹配");
     }
 
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void authenticatedUserCannotConfirmAnotherUsersDraft() throws Exception {
+        mockDraftQuery("PENDING_CONFIRMATION", "confirmation-token", null);
+
+        assertThatThrownBy(() -> service.confirmForUser("DRAFT-1", 43L))
+                .hasMessageContaining("不存在或无权操作");
+    }
+
     @SuppressWarnings({"rawtypes", "unchecked"})
     private void mockDraftQuery(String status, String token, String idempotencyKey) throws Exception {
         ResultSet resultSet = mock(ResultSet.class);

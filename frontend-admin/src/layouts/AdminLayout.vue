@@ -84,7 +84,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Odometer, User, MapLocation, Picture,
-  Dish, OfficeBuilding, Collection, List, ChatLineRound, DataAnalysis, DataLine
+  Dish, OfficeBuilding, Collection, List, ChatLineRound, DataAnalysis, DataLine, Tickets
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -106,8 +106,8 @@ const currentPageIcon = computed(() => {
   const icons = {
     '仪表盘': '📊', '用户管理': '👥', '城市管理': '🏙️',
     '景点管理': '🏔️', '美食管理': '🍜', '酒店管理': '🏨',
-    '行程模板': '⭐', '行程订单': '📋', '会话管理': '💬',
-    '知识库更新': 'KB'
+    '行程模板': '⭐', '行程订单': '📋', '预订管理': '🎫', '会话管理': '💬',
+    '知识库更新': 'KB', 'Agent 运行': '📈'
   }
   return icons[route.meta?.title] || '📊'
 })
@@ -129,7 +129,8 @@ const contentNavItems = [
 ]
 
 const orderNavItems = [
-  { path: '/trip-plans', title: '行程订单', icon: List }
+  { path: '/trip-plans', title: '行程订单', icon: List },
+  { path: '/bookings', title: '预订管理', icon: Tickets }
 ]
 
 function handleLogout() {

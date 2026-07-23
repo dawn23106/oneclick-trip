@@ -1,0 +1,34 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/ai/index",
+    "pages/trips/index",
+    "pages/profile/index",
+    "pages/login/index",
+    "pages/trip-detail/index",
+    "pages/bookings/index"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#f6faf7",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "一键游",
+    "backgroundColor": "#f6faf7",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#7b8981",
+    "selectedColor": "#267254",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/home/index", "text": "发现" },
+      { "pagePath": "pages/ai/index", "text": "AI 规划" },
+      { "pagePath": "pages/trips/index", "text": "行程" },
+      { "pagePath": "pages/profile/index", "text": "我的" }
+    ]
+  },
+  "networkTimeout": {
+    "request": 60000
+  },
+  "sitemapLocation": "sitemap.json"
+}

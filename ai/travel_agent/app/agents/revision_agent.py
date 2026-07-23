@@ -416,6 +416,7 @@ class RuleBasedRevisionAgent:
                 for day in plan.days
                 for item in day.items
                 if item.estimated_cost > 0
+                and (item.item_type or "").upper() != "FOOD"
             ),
             key=lambda entry: entry[0],
             reverse=True,

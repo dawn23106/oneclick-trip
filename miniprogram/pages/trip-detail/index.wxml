@@ -1,0 +1,48 @@
+<view class="detail-page">
+  <view wx:if="{{loading}}" class="page-shell"><view class="detail-hero skeleton"></view><view class="card detail-loading"><view class="skeleton load-line"></view><view class="skeleton load-line short"></view></view></view>
+
+  <view wx:elif="{{error}}" class="page-shell"><view class="card empty-state"><view class="empty-mark">!</view><view class="empty-title">无法打开行程</view><view class="empty-copy">{{error}}</view><button class="secondary-button" bindtap="loadTrip">重新加载</button></view></view>
+
+  <block wx:elif="{{trip}}">
+    <view class="detail-hero">
+      <image wx:if="{{trip.coverUrl}}" class="detail-hero-image" src="{{trip.coverUrl}}" mode="aspectFill" />
+      <view wx:if="{{trip.coverUrl}}" class="detail-hero-shade"></view>
+      <view class="hero-pattern"></view>
+      <text class="detail-source">{{trip.sourceLabel}}</text>
+      <text class="detail-destination">{{trip.destination}}</text>
+      <text class="detail-title">{{trip.title}}</text>
+      <view class="detail-meta"><text>{{trip.metaLine}}</text><text>{{trip.budgetText}}</text></view>
+    </view>
+
+    <view class="page-shell detail-content">
+      <view class="summary-card card"><text class="summary-kicker">规划说明</text><text class="summary-copy">{{trip.summary}}</text></view>
+
+      <scroll-view class="day-scroll" scroll-x enhanced show-scrollbar="false">
+        <view class="day-tabs">
+          <view wx:for="{{trip.dayPlans}}" wx:key="dayNo" class="day-tab {{activeDay === index ? 'active' : ''}}" data-index="{{index}}" bindtap="selectDay"><text>DAY</text><text class="day-number">{{item.dayNo}}</text></view>
+        </view>
+      </scroll-view>
+
+      <view wx:if="{{trip.dayPlans[activeDay]}}" class="day-content">
+        <text class="day-title">{{trip.dayPlans[activeDay].title}}</text>
+        <text wx:if="{{trip.dayPlans[activeDay].summary}}" class="day-summary">{{trip.dayPlans[activeDay].summary}}</text>
+        <view class="timeline">
+          <view wx:for="{{trip.dayPlans[activeDay].items}}" wx:key="title" class="timeline-item">
+            <view class="timeline-rail"><view class="timeline-dot"></view><view wx:if="{{index < trip.dayPlans[activeDay].items.length - 1}}" class="timeline-line"></view></view>
+            <view class="activity-card card">
+              <view class="activity-top"><text class="activity-type">{{item.typeLabel}}</text><text class="activity-time">{{item.time}}</text></view>
+              <text class="activity-title">{{item.title}}</text>
+              <text wx:if="{{item.description}}" class="activity-copy">{{item.description}}</text>
+              <view wx:if="{{item.address || item.costText}}" class="activity-foot"><text>{{item.address}}</text><text class="activity-cost">{{item.costText}}</text></view>
+              <button wx:if="{{item.optionId}}" class="item-book-button" data-option-id="{{item.optionId}}" data-booking-type="{{item.bookingType}}" loading="{{booking}}" disabled="{{booking}}" catchtap="addItemToBookings">加入预订清单</button>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <button wx:if="{{trip.bookableOptions.length}}" class="primary-button plan-book" loading="{{booking}}" disabled="{{booking}}" bindtap="addAllToBookings">预订方案中的全部可选项</button>
+      <button class="secondary-button booking-list-button" bindtap="openBookings">查看预订清单</button>
+      <button class="primary-button ai-optimize" bindtap="continueWithAi">交给 AI 继续优化</button>
+    </view>
+  </block>
+</view>

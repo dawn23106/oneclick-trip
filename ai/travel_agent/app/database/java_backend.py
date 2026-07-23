@@ -19,6 +19,7 @@ class JavaBusinessRepositories:
             base_url=base_url.rstrip("/"),
             headers={"X-Internal-Service-Key": internal_service_secret},
             timeout=timeout_seconds,
+            trust_env=False,
         )
 
     async def close(self) -> None:

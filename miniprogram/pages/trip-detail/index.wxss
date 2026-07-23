@@ -1,0 +1,35 @@
+.detail-page { min-height: 100vh; }
+.detail-hero { position: relative; min-height: 350rpx; overflow: hidden; padding: 58rpx 34rpx 42rpx; background: #326f54; color: #fff; }
+.detail-hero-image, .detail-hero-shade { position: absolute; inset: 0; width: 100%; height: 100%; }
+.detail-hero-shade { background: linear-gradient(180deg, rgba(15,43,29,.16), rgba(15,43,29,.78)); }
+.hero-pattern { position: absolute; top: -190rpx; right: -120rpx; width: 470rpx; height: 470rpx; border: 65rpx solid rgba(255,255,255,.08); border-radius: 50%; }
+.hero-pattern::after { position: absolute; top: 74rpx; left: -300rpx; width: 440rpx; height: 2rpx; background: rgba(255,255,255,.13); content: ''; transform: rotate(-22deg); }
+.detail-source, .detail-destination, .detail-title { position: relative; z-index: 1; display: block; }
+.detail-source { color: rgba(255,255,255,.72); font-size: 20rpx; font-weight: 700; letter-spacing: 3rpx; }
+.detail-destination { margin-top: 25rpx; font-size: 52rpx; font-weight: 800; letter-spacing: 3rpx; }
+.detail-title { margin-top: 6rpx; color: rgba(255,255,255,.9); font-size: 26rpx; }
+.detail-meta { position: relative; z-index: 1; display: flex; margin-top: 39rpx; padding-top: 22rpx; justify-content: space-between; border-top: 1rpx solid rgba(255,255,255,.19); color: rgba(255,255,255,.84); font-size: 23rpx; }
+.detail-content { margin-top: -18rpx; padding-top: 0; }
+.summary-card { position: relative; z-index: 2; padding: 25rpx 26rpx; box-shadow: 0 12rpx 34rpx rgba(27,65,46,.08); }
+.summary-kicker, .summary-copy { display: block; }.summary-kicker { color: #39785a; font-size: 20rpx; font-weight: 700; letter-spacing: 2rpx; }.summary-copy { margin-top: 8rpx; color: #5f6e66; font-size: 24rpx; line-height: 1.65; }
+.day-scroll { width: calc(100% + 28rpx); margin: 32rpx 0 27rpx; }
+.day-tabs { display: inline-flex; gap: 12rpx; padding-right: 28rpx; }
+.day-tab { display: flex; width: 108rpx; height: 94rpx; align-items: center; justify-content: center; border: 1rpx solid #dbe6df; border-radius: 18rpx; background: #fff; flex-direction: column; color: #829087; }
+.day-tab text { font-size: 17rpx; letter-spacing: 2rpx; }.day-tab .day-number { color: #4d6257; font-size: 31rpx; font-weight: 700; line-height: 1.1; }
+.day-tab.active { border-color: #2f7657; background: #286d50; color: rgba(255,255,255,.7); }.day-tab.active .day-number { color: #fff; }
+.day-title, .day-summary { display: block; }.day-title { font-size: 36rpx; font-weight: 750; }.day-summary { margin-top: 5rpx; color: #7a8880; font-size: 23rpx; }
+.timeline { margin-top: 28rpx; }
+.timeline-item { display: flex; align-items: stretch; gap: 16rpx; }
+.timeline-rail { position: relative; flex: 0 0 26rpx; width: 26rpx; }
+.timeline-dot { position: relative; z-index: 1; width: 20rpx; height: 20rpx; margin: 29rpx auto 0; border: 5rpx solid #d9eee2; border-radius: 50%; background: #2d7657; }
+.timeline-line { position: absolute; top: 49rpx; bottom: -29rpx; left: 12rpx; width: 2rpx; background: #d4e4da; }
+.activity-card { min-width: 0; margin-bottom: 20rpx; padding: 24rpx; flex: 1; }
+.activity-top { display: flex; justify-content: space-between; }.activity-type { color: #438164; font-size: 19rpx; font-weight: 700; letter-spacing: 1rpx; }.activity-time { color: #86928b; font-size: 21rpx; }
+.activity-title { display: block; margin-top: 8rpx; font-size: 29rpx; font-weight: 700; }
+.activity-copy { display: block; margin-top: 7rpx; color: #748078; font-size: 22rpx; line-height: 1.6; }
+.activity-foot { display: flex; margin-top: 15rpx; padding-top: 13rpx; justify-content: space-between; border-top: 1rpx solid #e8eeea; color: #89938d; font-size: 20rpx; }.activity-foot text:first-child { max-width: 75%; }.activity-cost { color: #d16c4e; font-weight: 650; }
+.item-book-button { height: 62rpx; margin: 18rpx 0 0; border: 1rpx solid #bdd4c7; border-radius: 16rpx; background: #eef7f1; color: #286d50; font-size: 22rpx; line-height: 60rpx; }
+.plan-book { margin-top: 24rpx; }
+.booking-list-button { margin-top: 18rpx; }
+.ai-optimize { margin-top: 24rpx; }
+.detail-loading { margin-top: 30rpx; padding: 30rpx; }.load-line { width: 90%; height: 32rpx; margin: 18rpx 0; }.load-line.short { width: 55%; }

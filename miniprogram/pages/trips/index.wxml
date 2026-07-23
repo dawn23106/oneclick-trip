@@ -1,0 +1,41 @@
+<view class="page-shell trips-page">
+  <view class="trips-intro">
+    <view><text class="intro-kicker">MY JOURNEYS</text><text class="intro-title">旅程，都在这里</text><text class="intro-copy">随时回来查看路线或继续交给 AI 调整。</text></view>
+    <button class="create-button" bindtap="createTrip">＋</button>
+  </view>
+
+  <view class="filter-row">
+    <view wx:for="{{filters}}" wx:key="key" class="filter-item {{filter === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setFilter">{{item.label}}</view>
+  </view>
+
+  <view wx:if="{{loading}}" class="trip-list">
+    <view wx:for="{{[1,2,3]}}" wx:key="*this" class="trip-card card loading-card"><view class="trip-cover skeleton"></view><view class="trip-body"><view class="skeleton line wide"></view><view class="skeleton line"></view><view class="skeleton line short"></view></view></view>
+  </view>
+
+  <view wx:elif="{{error}}" class="card empty-state">
+    <view class="empty-mark">!</view><view class="empty-title">行程加载失败</view><view class="empty-copy">{{error}}</view><button class="secondary-button" bindtap="loadTrips">重新加载</button>
+  </view>
+
+  <view wx:elif="{{visibleTrips.length === 0}}" class="card empty-state">
+    <view class="empty-mark">↗</view><view class="empty-title">还没有这样的行程</view><view class="empty-copy">告诉 AI 你想去哪，它会把想法整理成完整路线。</view><button class="primary-button" bindtap="createTrip">开始规划</button>
+  </view>
+
+  <view wx:else class="trip-list">
+    <view wx:for="{{visibleTrips}}" wx:key="key" class="trip-card card" data-id="{{item.recordId}}" data-type="{{item.planType}}" bindtap="openTrip">
+      <view class="trip-cover {{item.coverClass}}">
+        <image wx:if="{{item.coverUrl}}" class="trip-cover-image" src="{{item.coverUrl}}" mode="aspectFill" lazy-load />
+        <view wx:if="{{item.coverUrl}}" class="trip-cover-shade"></view>
+        <view class="cover-orbit"></view>
+        <text class="cover-city">{{item.destination || '新的旅行'}}</text>
+        <view class="status-badge {{item.state}}">{{item.statusLabel}}</view>
+      </view>
+      <view class="trip-body">
+        <view class="source-row"><text>{{item.sourceLabel}}</text><text>V{{item.version || 1}}</text></view>
+        <text class="trip-title">{{item.title || item.destination + '旅行计划'}}</text>
+        <text class="trip-summary">{{item.summary || '一份已经准备好的旅行路线。'}}</text>
+        <view class="trip-data"><text>{{item.dateText}}</text><text>{{item.peopleCount || 1}} 人</text><text>{{item.budgetText}}</text></view>
+        <view class="open-row"><text>查看详细安排</text><text>→</text></view>
+      </view>
+    </view>
+  </view>
+</view>

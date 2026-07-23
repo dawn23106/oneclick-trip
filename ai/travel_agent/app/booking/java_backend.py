@@ -24,6 +24,7 @@ class JavaBookingBackend:
             base_url=base_url.rstrip("/"),
             headers={"X-Internal-Service-Key": internal_service_secret},
             timeout=timeout_seconds,
+            trust_env=False,
         )
         self._confirmation_tokens: dict[str, str] = {}
         self._redis: redis.Redis | None = None

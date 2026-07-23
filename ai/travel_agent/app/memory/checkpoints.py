@@ -24,6 +24,15 @@ from redis import Redis
 from app.domain import models as domain_models
 
 
+def _domain_checkpoint_serializer() -> JsonPlusSerializer:
+    allowed_types = [
+        (value.__module__, value.__name__)
+        for value in vars(domain_models).values()
+        if isinstance(value, type) and value.__module__ == domain_models.__name__
+    ]
+    return JsonPlusSerializer(allowed_msgpack_modules=allowed_types)
+
+
 class CheckpointBackend(Protocol):
     def create(self) -> BaseCheckpointSaver:
         """Create a LangGraph-compatible checkpoint saver."""
@@ -33,23 +42,23 @@ class InMemoryCheckpointBackend:
     """Development and tests only; process restarts discard all checkpoints."""
 
     def create(self) -> BaseCheckpointSaver:
-        return InMemorySaver()
+        return InMemorySaver(serde=_domain_checkpoint_serializer())
 
 
 class PlainRedisSaver(BaseCheckpointSaver):
     """LangGraph saver for ordinary Redis 6+, without Redis Stack modules."""
 
-    def __init__(self, redis_url: str, *, ttl_minutes: int = 120) -> None:
-        allowed_types = [
-            (value.__module__, value.__name__)
-            for value in vars(domain_models).values()
-            if isinstance(value, type) and value.__module__ == domain_models.__name__
-        ]
-        super().__init__(
-            serde=JsonPlusSerializer(allowed_msgpack_modules=allowed_types)
-        )
+    def __init__(
+        self,
+        redis_url: str,
+        *,
+        ttl_minutes: int = 1440,
+        refresh_on_read: bool = True,
+    ) -> None:
+        super().__init__(serde=_domain_checkpoint_serializer())
         self._redis = Redis.from_url(redis_url, decode_responses=False)
         self._ttl_seconds = max(ttl_minutes, 1) * 60
+        self._refresh_on_read = refresh_on_read
         self._root = "oneclick:langgraph"
 
     def ping(self) -> bool:
@@ -80,6 +89,18 @@ class PlainRedisSaver(BaseCheckpointSaver):
         parent_id = record.get(b"parent_id", b"").decode() or None
         writes = []
         raw_writes = self._redis.hgetall(f"{base}:writes:{checkpoint_id}")
+        if self._refresh_on_read:
+            keys = [
+                f"{base}:checkpoint:{checkpoint_id}",
+                f"{base}:ids",
+                self._namespace_set_key(thread_id),
+            ]
+            if raw_writes:
+                keys.append(f"{base}:writes:{checkpoint_id}")
+            pipeline = self._redis.pipeline(transaction=False)
+            for key in keys:
+                pipeline.expire(key, self._ttl_seconds)
+            pipeline.execute()
         for _, payload in sorted(raw_writes.items()):
             task_id, channel, value, _task_path = self.serde.loads_typed(self._unpack(payload))
             writes.append((task_id, channel, value))
@@ -287,8 +308,18 @@ class PlainRedisSaver(BaseCheckpointSaver):
 
 
 class PlainRedisCheckpointBackend:
-    def __init__(self, url: str, *, ttl_minutes: int = 120) -> None:
-        self._saver = PlainRedisSaver(url, ttl_minutes=ttl_minutes)
+    def __init__(
+        self,
+        url: str,
+        *,
+        ttl_minutes: int = 1440,
+        refresh_on_read: bool = True,
+    ) -> None:
+        self._saver = PlainRedisSaver(
+            url,
+            ttl_minutes=ttl_minutes,
+            refresh_on_read=refresh_on_read,
+        )
 
     def create(self) -> BaseCheckpointSaver:
         return self._saver
@@ -303,7 +334,7 @@ class PlainRedisCheckpointBackend:
 @dataclass(frozen=True, slots=True)
 class RedisCheckpointSettings:
     url: str
-    ttl_minutes: int = 120
+    ttl_minutes: int = 1440
     refresh_on_read: bool = True
 
     def as_ttl_config(self) -> dict[str, int | bool]:

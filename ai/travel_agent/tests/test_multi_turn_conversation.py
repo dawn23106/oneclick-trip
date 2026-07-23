@@ -145,3 +145,27 @@ def test_query_does_not_pollute_next_trip() -> None:
     # Trip should be for Chengdu, not Hangzhou
     assert trip_result["entities"].destination == "成都"
     assert trip_result["plan_draft"].destination == "成都"
+
+
+def test_new_destination_replaces_previous_plan_in_same_conversation() -> None:
+    results = invoke_multi_turn(
+        [
+            "帮我规划杭州三日游，两个人，总预算5000",
+            "生成北京",
+            "三天，两个人，预算5000",
+        ],
+        thread_id="hangzhou-then-beijing",
+    )
+
+    hangzhou, incomplete_beijing, completed_beijing = results
+    assert hangzhou["current_plan"].destination == "杭州"
+    assert incomplete_beijing["intent"] is Intent.TRIP_PLAN
+    assert incomplete_beijing["entities"].destination == "北京"
+    assert incomplete_beijing["plan_saved"] is False
+    assert completed_beijing["plan_saved"] is True
+    assert completed_beijing["current_plan"].destination == "北京"
+    assert all(
+        "杭州" not in item.name
+        for day in completed_beijing["current_plan"].days
+        for item in day.items
+    )

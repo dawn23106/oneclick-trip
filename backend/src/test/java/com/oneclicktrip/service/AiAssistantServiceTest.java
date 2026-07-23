@@ -3,10 +3,12 @@ package com.oneclicktrip.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oneclicktrip.client.FastApiAgentClient;
+import com.oneclicktrip.common.BusinessException;
 import com.oneclicktrip.dto.AiChatRequest;
 import com.oneclicktrip.dto.AiChatResponse;
 import com.oneclicktrip.dto.AiResumeRequest;
 import com.oneclicktrip.entity.AiCallLog;
+import com.oneclicktrip.entity.AiConversation;
 import com.oneclicktrip.mapper.AiCallLogMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,7 @@ import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -160,6 +163,29 @@ class AiAssistantServiceTest {
         assertThat(firstPoll.path("response").path("message").asText()).contains("成都明天多云");
         assertThat(secondPoll.path("response").path("status").asText()).isEqualTo("COMPLETED");
         verify(agentClient).startRun("conversation-async-1", "42", "成都明天天气怎么样？", false);
+        verify(logMapper).insert(org.mockito.ArgumentMatchers.any(AiCallLog.class));
+    }
+
+    @Test
+    void rejectedAsyncStartDoesNotPersistADuplicateConversationTurn() {
+        AiConversation conversation = mock(AiConversation.class);
+        when(conversationService.findOrCreate(42L, "conversation-busy", "重复消息"))
+                .thenReturn(conversation);
+        when(agentClient.startRun("conversation-busy", "42", "重复消息", false))
+                .thenThrow(new BusinessException("This conversation already has an active Agent run"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.startChat(
+                        new AiChatRequest(null, "conversation-busy", "重复消息"),
+                        42L
+                ))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("active Agent run");
+
+        verify(conversationService, never()).recordUserMessage(conversation, "重复消息");
+        verify(conversationService, never()).recordFailure(
+                org.mockito.ArgumentMatchers.eq(conversation),
+                org.mockito.ArgumentMatchers.anyString()
+        );
         verify(logMapper).insert(org.mockito.ArgumentMatchers.any(AiCallLog.class));
     }
 

@@ -46,7 +46,6 @@ public class AiAssistantService {
                 ? request.conversationId()
                 : UUID.randomUUID().toString();
         AiConversation conversation = conversationService.findOrCreate(userId, conversationId, request.message());
-        conversationService.recordUserMessage(conversation, request.message());
         try {
             JsonNode accepted = agentClient.startRun(
                     conversationId,
@@ -58,6 +57,7 @@ public class AiAssistantService {
             if (runId.isBlank()) {
                 throw new IllegalStateException("FastAPI 未返回 run_id");
             }
+            conversationService.recordUserMessage(conversation, request.message());
             pendingRuns.put(
                     runId,
                     new AsyncCallContext(userId, conversationId, request.message(), conversation)
@@ -65,9 +65,6 @@ public class AiAssistantService {
             return accepted;
         } catch (RuntimeException ex) {
             saveLog(userId, request.message(), ex.getMessage(), "FAILED");
-            if (conversation != null) {
-                conversationService.recordFailure(conversation, ex.getMessage());
-            }
             throw ex;
         }
     }
