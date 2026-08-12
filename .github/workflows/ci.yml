@@ -22,7 +22,7 @@ jobs:
         working-directory: ai/travel_agent
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v9
+      - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
           cache-dependency-glob: ai/travel_agent/uv.lock
