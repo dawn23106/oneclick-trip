@@ -1,0 +1,245 @@
+-- 用户表：保存登录账号、昵称、头像、角色和状态。
+CREATE TABLE IF NOT EXISTS sys_user (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  username VARCHAR(64) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  nickname VARCHAR(64) NOT NULL,
+  mobile VARCHAR(32),
+  avatar_url VARCHAR(64) NOT NULL DEFAULT 'avatar-compass',
+  role VARCHAR(32) NOT NULL DEFAULT 'USER',
+  status TINYINT NOT NULL DEFAULT 1,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 兼容旧数据库：如果之前已经创建过 sys_user 但没有 avatar_url，就补上头像字段。
+SET @avatar_column_sql = (
+  SELECT IF(
+    COUNT(*) = 0,
+    'ALTER TABLE sys_user ADD COLUMN avatar_url VARCHAR(64) NOT NULL DEFAULT ''avatar-compass''',
+    'SELECT 1'
+  )
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'sys_user'
+    AND COLUMN_NAME = 'avatar_url'
+);
+PREPARE avatar_column_stmt FROM @avatar_column_sql;
+EXECUTE avatar_column_stmt;
+DEALLOCATE PREPARE avatar_column_stmt;
+
+-- 城市资料：目的地列表的基础表。
+CREATE TABLE IF NOT EXISTS city (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(64) NOT NULL,
+  province VARCHAR(64) NOT NULL,
+  summary VARCHAR(512) NOT NULL,
+  best_season VARCHAR(128),
+  image_url VARCHAR(255),
+  status TINYINT NOT NULL DEFAULT 1,
+  sort_order INT NOT NULL DEFAULT 0,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 景点资料：景点攻略页和规则版行程生成都会读取。
+CREATE TABLE IF NOT EXISTS scenic_spot (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  city_id BIGINT NOT NULL,
+  name VARCHAR(128) NOT NULL,
+  address VARCHAR(255),
+  summary VARCHAR(512) NOT NULL,
+  ticket_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  open_time VARCHAR(128),
+  play_hours DECIMAL(4,1) NOT NULL DEFAULT 2,
+  rating DECIMAL(3,1) NOT NULL DEFAULT 4.5,
+  tags VARCHAR(255),
+  image_url VARCHAR(255),
+  sort_order INT NOT NULL DEFAULT 0,
+  status TINYINT NOT NULL DEFAULT 1,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_spot_city (city_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 美食资料：美食页和行程中的午餐/晚餐安排会读取。
+CREATE TABLE IF NOT EXISTS food (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  city_id BIGINT NOT NULL,
+  name VARCHAR(128) NOT NULL,
+  category VARCHAR(64),
+  summary VARCHAR(512) NOT NULL,
+  recommended_area VARCHAR(128),
+  avg_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  image_url VARCHAR(255),
+  sort_order INT NOT NULL DEFAULT 0,
+  status TINYINT NOT NULL DEFAULT 1,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_food_city (city_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 酒店资料：规则版行程会根据预算选择酒店。
+CREATE TABLE IF NOT EXISTS hotel (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  city_id BIGINT NOT NULL,
+  name VARCHAR(128) NOT NULL,
+  area VARCHAR(128),
+  summary VARCHAR(512) NOT NULL,
+  price_level VARCHAR(32) NOT NULL DEFAULT 'MEDIUM',
+  avg_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  rating DECIMAL(3,1) NOT NULL DEFAULT 4.5,
+  image_url VARCHAR(255),
+  status TINYINT NOT NULL DEFAULT 1,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_hotel_city (city_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 行程模板：首页精选模板和模板列表使用。
+CREATE TABLE IF NOT EXISTS trip_template (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  city_id BIGINT NOT NULL,
+  title VARCHAR(128) NOT NULL,
+  days INT NOT NULL,
+  budget_level VARCHAR(32) NOT NULL DEFAULT 'MEDIUM',
+  pace VARCHAR(32) NOT NULL DEFAULT 'RELAXED',
+  summary TEXT NOT NULL,
+  cover_url VARCHAR(255),
+  status TINYINT NOT NULL DEFAULT 1,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_template_city (city_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 行程主表：保存一次生成出来的整体行程。
+CREATE TABLE IF NOT EXISTS trip_plan (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT,
+  city_id BIGINT NOT NULL,
+  departure_city VARCHAR(64),
+  title VARCHAR(128) NOT NULL,
+  days INT NOT NULL,
+  people_count INT NOT NULL DEFAULT 1,
+  start_date DATE,
+  budget_level VARCHAR(32) NOT NULL DEFAULT 'MEDIUM',
+  pace VARCHAR(32) NOT NULL DEFAULT 'RELAXED',
+  interests VARCHAR(255),
+  total_budget DECIMAL(10,2) NOT NULL DEFAULT 0,
+  summary VARCHAR(1024) NOT NULL,
+  source_type VARCHAR(32) NOT NULL DEFAULT 'RULE',
+  trip_status VARCHAR(32) NOT NULL DEFAULT 'PLANNING',
+  deleted TINYINT NOT NULL DEFAULT 0,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_plan_city (city_id),
+  INDEX idx_plan_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 行程天表：一个 trip_plan 下面会有多天。
+CREATE TABLE IF NOT EXISTS trip_plan_day (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  plan_id BIGINT NOT NULL,
+  day_no INT NOT NULL,
+  title VARCHAR(128) NOT NULL,
+  summary VARCHAR(512) NOT NULL,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_day_plan (plan_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 行程项目表：一天里的具体安排，例如交通、景点、美食、酒店。
+CREATE TABLE IF NOT EXISTS trip_plan_item (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  plan_day_id BIGINT NOT NULL,
+  item_type VARCHAR(32) NOT NULL,
+  title VARCHAR(128) NOT NULL,
+  description VARCHAR(512),
+  address VARCHAR(255),
+  start_time VARCHAR(16),
+  end_time VARCHAR(16),
+  cost DECIMAL(10,2) NOT NULL DEFAULT 0,
+  sort_order INT NOT NULL DEFAULT 0,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_item_day (plan_day_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 收藏表：当前前端还没做收藏，但先预留业务表。
+CREATE TABLE IF NOT EXISTS favorite (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  target_type VARCHAR(32) NOT NULL,
+  target_id BIGINT NOT NULL,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_favorite_user_target (user_id, target_type, target_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- AI 调用日志：当前记录占位 AI 请求，未来接入 FastAPI 后继续复用。
+CREATE TABLE IF NOT EXISTS ai_call_log (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT,
+  request_text VARCHAR(1024) NOT NULL,
+  response_text VARCHAR(2048) NOT NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'PLACEHOLDER',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ai_log_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- AI 会话主表：conversation_id 同时作为 LangGraph 的 thread_id 使用。
+CREATE TABLE IF NOT EXISTS ai_conversation (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  conversation_id VARCHAR(128) NOT NULL,
+  user_id BIGINT NOT NULL,
+  title VARCHAR(128) NOT NULL DEFAULT '新对话',
+  status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+  last_message_preview VARCHAR(255),
+  message_count INT NOT NULL DEFAULT 0,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_ai_conversation_id (conversation_id),
+  INDEX idx_ai_conversation_user_update (user_id, update_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- AI 消息表：保存文本和 Agent 结构化状态，供会话恢复与管理端审计。
+CREATE TABLE IF NOT EXISTS ai_message (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  ai_conversation_id BIGINT NOT NULL,
+  role VARCHAR(16) NOT NULL,
+  content TEXT NOT NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'COMPLETED',
+  intent VARCHAR(64),
+  agent_state_json LONGTEXT,
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ai_message_conversation (ai_conversation_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 已存在数据库的增量迁移：为 trip_plan 补上行程状态字段。
+SET @status_column_sql = (
+  SELECT IF(
+    COUNT(*) = 0,
+    'ALTER TABLE trip_plan ADD COLUMN trip_status VARCHAR(32) NOT NULL DEFAULT ''PLANNING''',
+    'SELECT 1'
+  )
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'trip_plan'
+    AND COLUMN_NAME = 'trip_status'
+);
+PREPARE status_column_stmt FROM @status_column_sql;
+EXECUTE status_column_stmt;
+DEALLOCATE PREPARE status_column_stmt;
+
+-- 模板摘要字段从 VARCHAR(512) 扩到 TEXT，支持详细行程描述。
+-- CREATE TABLE 已用 TEXT 建表，此处兼容旧库升级，已为 TEXT 时无害。
+ALTER TABLE trip_template MODIFY COLUMN summary TEXT NOT NULL;

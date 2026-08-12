@@ -1,0 +1,82 @@
+<view class="home-page">
+  <view class="home-hero">
+    <image class="hero-background" src="{{heroImage}}" mode="aspectFill" />
+    <view class="hero-overlay"></view>
+    <view class="top-safe"></view>
+    <view class="top-row">
+      <view>
+        <text class="hello">{{greeting}}，{{user.displayName}}</text>
+        <text class="subhello">今天想去哪里走走？</text>
+      </view>
+      <view class="avatar">{{user.initial}}</view>
+    </view>
+
+    <view class="hero-copy">
+      <text class="hero-kicker">你的专属旅行搭子</text>
+      <view class="hero-title">一句话，开始<text>新的旅行</text></view>
+    </view>
+
+    <view class="prompt-box">
+      <textarea value="{{prompt}}" bindinput="onPrompt" bindconfirm="submitPrompt" confirm-type="send" placeholder="例如：国庆去成都 4 天，两个人，喜欢美食和慢节奏……" maxlength="300" auto-height />
+      <view class="prompt-actions">
+        <view class="location-hint"><text class="location-dot"></text>从你的想法开始</view>
+        <button class="send-button" bindtap="submitPrompt" aria-label="发送旅行需求">出发</button>
+      </view>
+    </view>
+
+    <scroll-view class="suggestion-scroll" scroll-x enhanced show-scrollbar="false">
+      <view class="suggestion-row">
+        <view wx:for="{{suggestions}}" wx:key="*this" class="suggestion-chip" data-text="{{item}}" bindtap="useSuggestion">{{item}}</view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view class="page-shell content-shell">
+    <view wx:if="{{error}}" class="error-banner" bindtap="loadData">{{error}}，点击重试</view>
+
+    <view class="section-head">
+      <view>
+        <text class="section-eyebrow">INSPIRATION</text>
+        <view class="section-title">最近大家想去</view>
+      </view>
+    </view>
+
+    <scroll-view wx:if="{{!loading}}" class="city-scroll" scroll-x enhanced show-scrollbar="false">
+      <view class="city-row">
+        <view wx:for="{{cities}}" wx:key="id" class="city-card" data-index="{{index}}" bindtap="startCity">
+          <image wx:if="{{item.imageUrl}}" src="{{item.imageUrl}}" mode="aspectFill" lazy-load />
+          <view wx:else class="city-fallback {{item.toneClass}}"><text>{{item.initial}}</text></view>
+          <view class="city-shade"></view>
+          <view class="city-meta">
+            <text class="city-name">{{item.name}}</text>
+            <text class="city-season">{{item.bestSeason || item.province}}</text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+    <view wx:else class="city-row loading-row">
+      <view wx:for="{{[1,2,3]}}" wx:key="*this" class="city-card skeleton"></view>
+    </view>
+
+    <view class="section-head">
+      <view>
+        <text class="section-eyebrow">CURATED ROUTES</text>
+        <view class="section-title">精选旅行灵感</view>
+      </view>
+      <text class="section-more" bindtap="goTrips">我的行程 →</text>
+    </view>
+
+    <view wx:if="{{!loading}}" class="template-list">
+      <view wx:for="{{templates}}" wx:key="id" class="template-card card" data-index="{{index}}" bindtap="startTemplate">
+        <image wx:if="{{item.coverUrl}}" class="template-cover" src="{{item.coverUrl}}" mode="aspectFill" lazy-load />
+        <view wx:else class="template-cover template-fallback"><text>路线</text></view>
+        <view class="template-body">
+          <view class="template-top"><text class="template-days">{{item.days}} DAYS</text><text class="template-arrow">↗</text></view>
+          <text class="template-title">{{item.title}}</text>
+          <text class="template-summary">{{item.summary || '用更轻松的节奏，发现目的地的真实一面。'}}</text>
+          <view class="template-tags"><text>{{item.pace || '舒适节奏'}}</text><text>{{item.budgetLevel || '合理预算'}}</text></view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

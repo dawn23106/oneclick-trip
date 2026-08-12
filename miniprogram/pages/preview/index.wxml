@@ -1,0 +1,136 @@
+<view class="preview-page">
+  <!-- 加载中 -->
+  <view wx:if="{{loading}}" class="preview-loading">
+    <view class="skeleton hero-skeleton"></view>
+    <view class="page-shell"><view class="skeleton line wide"></view><view class="skeleton line"></view><view class="skeleton line short"></view></view>
+  </view>
+
+  <!-- 加载失败 -->
+  <view wx:elif="{{error}}" class="page-shell empty-state">
+    <view class="empty-mark">!</view>
+    <view class="empty-title">加载失败</view>
+    <view class="empty-copy">{{error}}</view>
+    <button class="secondary-button" bindtap="goBack">返回首页</button>
+  </view>
+
+  <!-- 城市预览 -->
+  <block wx:elif="{{type === 'city' && city}}">
+    <view class="preview-hero">
+      <image wx:if="{{city.coverUrl}}" class="hero-image" src="{{city.coverUrl}}" mode="aspectFill" />
+      <view wx:elif="{{city.imageUrl}}" class="hero-image hero-fallback"></view>
+      <view class="hero-shade"></view>
+      <view class="top-safe"></view>
+      <button class="back-button" bindtap="goBack">←</button>
+      <view class="hero-body">
+        <text class="hero-kicker">{{city.province}} · {{city.seasonText}}</text>
+        <text class="hero-title">{{city.name}}</text>
+        <text class="hero-summary">{{city.summary}}</text>
+      </view>
+    </view>
+
+    <view class="page-shell preview-content">
+      <view wx:if="{{spots.length}}" class="preview-section">
+        <view class="section-head">
+          <view><text class="section-eyebrow">MUST VISIT</text><view class="section-title">精选景点</view></view>
+        </view>
+        <scroll-view class="spot-scroll" scroll-x enhanced show-scrollbar="false">
+          <view class="spot-row">
+            <view wx:for="{{spots}}" wx:key="id" class="spot-card">
+              <image wx:if="{{item.imageSrc}}" src="{{item.imageSrc}}" mode="aspectFill" lazy-load class="spot-image" binderror="onSpotImageError" data-index="{{index}}" />
+              <view wx:else class="spot-image spot-placeholder">{{item.name.slice(0,1)}}</view>
+              <view class="spot-body">
+                <view class="spot-top"><text class="spot-name">{{item.name}}</text><text class="spot-rating" wx:if="{{item.ratingLabel}}">{{item.ratingLabel}}</text></view>
+                <text class="spot-desc">{{item.summary}}</text>
+                <view class="spot-foot"><text>{{item.priceLabel}}</text><text wx:if="{{item.playHours}}">{{item.playHours}} 小时</text></view>
+              </view>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <view wx:if="{{foods.length}}" class="preview-section">
+        <view class="section-head">
+          <view><text class="section-eyebrow">LOCAL FLAVORS</text><view class="section-title">本地美食</view></view>
+        </view>
+        <view class="food-list">
+          <view wx:for="{{foods}}" wx:key="id" class="food-item">
+            <image wx:if="{{item.imageSrc}}" src="{{item.imageSrc}}" mode="aspectFill" lazy-load class="food-image" binderror="onFoodImageError" data-index="{{index}}" />
+            <view wx:else class="food-image food-placeholder">{{item.name.slice(0,1)}}</view>
+            <view class="food-body">
+              <view class="food-top"><text class="food-name">{{item.name}}</text><text class="food-price">{{item.priceLabel}}</text></view>
+              <text class="food-category">{{item.category}}</text>
+              <text class="food-summary">{{item.summary}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="bottom-bar">
+      <button class="primary-button ai-button" bindtap="startAiForCity">✨ 交给 AI 定制 {{city.name}} 行程</button>
+    </view>
+  </block>
+
+  <!-- 模板预览 -->
+  <block wx:elif="{{type === 'template' && template}}">
+    <view class="preview-hero template-hero">
+      <image wx:if="{{template.coverUrl}}" class="hero-image" src="{{template.coverUrl}}" mode="aspectFill" />
+      <view class="hero-shade"></view>
+      <view class="top-safe"></view>
+      <button class="back-button" bindtap="goBack">←</button>
+      <view class="hero-body">
+        <text class="hero-kicker">{{template.paceLabel}}节奏 · {{template.budgetLabel}}预算</text>
+        <text class="hero-title">{{template.title}}</text>
+      </view>
+    </view>
+
+    <view class="page-shell preview-content">
+      <view class="tpl-quick-stats">
+        <view class="tpl-stat"><text class="tpl-stat-num">{{template.days}}</text><text class="tpl-stat-label">天</text></view>
+        <view class="tpl-stat"><text class="tpl-stat-num">{{template.paceLabel}}</text><text class="tpl-stat-label">节奏</text></view>
+        <view class="tpl-stat"><text class="tpl-stat-num">{{template.budgetLabel}}</text><text class="tpl-stat-label">预算</text></view>
+      </view>
+
+      <view class="section-head">
+        <view><text class="section-eyebrow">DAILY PLAN</text><view class="section-title">每日安排</view></view>
+      </view>
+
+      <view class="tpl-timeline">
+        <view wx:for="{{template.planDays}}" wx:key="dayIndex" class="tpl-day-item">
+          <view class="tpl-day-rail">
+            <view class="tpl-day-dot" style="background:{{item.theme.dot}};border-color:{{item.theme.border}};"></view>
+            <view wx:if="{{index < template.planDays.length - 1}}" class="tpl-day-line"></view>
+          </view>
+          <view class="tpl-day-card card" style="background:{{item.theme.bg}};border-color:{{item.theme.border}};">
+            <view class="tpl-day-top">
+              <view class="tpl-day-badge" style="background:{{item.theme.dot}};">Day {{item.dayIndex}}</view>
+              <text class="tpl-step-count" wx:if="{{item.steps.length}}">{{item.steps.length}} 个环节</text>
+            </view>
+            <view wx:if="{{item.steps.length}}" class="tpl-day-steps">
+              <view wx:for="{{item.steps}}" wx:key="text" wx:for-item="step" class="tpl-step">
+                <view class="tpl-step-icon-box">
+                  <text wx:if="{{step.icon === 'eat'}}">🍜</text>
+                  <text wx:elif="{{step.icon === 'culture'}}">🏛</text>
+                  <text wx:elif="{{step.icon === 'walk'}}">🚶</text>
+                  <text wx:elif="{{step.icon === 'cafe'}}">🍵</text>
+                  <text wx:elif="{{step.icon === 'transport'}}">🚗</text>
+                  <text wx:elif="{{step.icon === 'hotel'}}">🏨</text>
+                  <text wx:else>📍</text>
+                </view>
+                <view class="tpl-step-body">
+                  <text wx:if="{{step.label}}" class="tpl-step-label">{{step.label}}</text>
+                  <text class="tpl-step-text">{{step.text}}</text>
+                </view>
+              </view>
+            </view>
+            <text wx:else class="tpl-day-text">{{item.text}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="bottom-bar">
+      <button class="primary-button ai-button" bindtap="startAiForTemplate">✨ 按此模板交给 AI 定制</button>
+    </view>
+  </block>
+</view>

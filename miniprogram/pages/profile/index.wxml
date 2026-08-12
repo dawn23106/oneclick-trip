@@ -1,0 +1,56 @@
+<view class="profile-page">
+  <view class="profile-hero">
+    <view class="profile-pattern"></view>
+    <text class="profile-kicker">TRAVEL PROFILE</text>
+    <view class="identity-row">
+      <view class="profile-avatar">
+        <image wx:if="{{user.hasRemoteAvatar}}" src="{{user.avatarUrl}}" mode="aspectFill" />
+        <text wx:else>{{user.initial}}</text>
+      </view>
+      <view class="identity-copy"><text class="identity-name">{{user.displayName}}</text><text class="identity-account">@{{user.username}} · {{user.role === 'ADMIN' ? '管理员' : '旅行者'}}</text></view>
+      <button class="edit-button" bindtap="openEdit">编辑</button>
+    </view>
+    <view class="stats-row">
+      <view><text class="stat-number">{{stats.trips}}</text><text>保存的行程</text></view>
+      <view><text class="stat-number">{{stats.conversations}}</text><text>AI 会话</text></view>
+      <view><text class="stat-number">1</text><text>旅行画像</text></view>
+    </view>
+  </view>
+
+  <view class="page-shell profile-content">
+    <view wx:if="{{error && !showEdit}}" class="error-banner" bindtap="loadProfile">{{error}}，点击重试</view>
+
+    <view class="profile-section">
+      <text class="profile-section-title">我的旅行</text>
+      <view class="menu-card card">
+        <view class="menu-item" bindtap="goTrips"><view class="menu-icon green">↗</view><view class="menu-copy"><text>全部行程</text><text class="menu-note">查看已经生成和保存的旅行计划</text></view><text class="menu-arrow">›</text></view>
+        <view class="menu-divider"></view>
+        <view class="menu-item" bindtap="openBookings"><view class="menu-icon blue">单</view><view class="menu-copy"><text>预订清单</text><text class="menu-note">确认或取消待处理的酒店、交通与门票</text></view><text class="menu-arrow">›</text></view>
+        <view class="menu-divider"></view>
+        <view class="menu-item" bindtap="goAi"><view class="menu-icon coral">✦</view><view class="menu-copy"><text>AI 对话记录</text><text class="menu-note">继续之前没有完成的旅行灵感</text></view><text class="menu-arrow">›</text></view>
+      </view>
+    </view>
+
+    <view class="profile-section">
+      <text class="profile-section-title">偏好与设置</text>
+      <view class="menu-card card">
+        <view class="menu-item" bindtap="openEdit"><view class="menu-icon sand">人</view><view class="menu-copy"><text>个人资料</text><text class="menu-note">修改昵称和头像地址</text></view><text class="menu-arrow">›</text></view>
+        <view class="menu-divider"></view>
+        <view class="menu-item" bindtap="showAbout"><view class="menu-icon blue">i</view><view class="menu-copy"><text>关于一键游</text><text class="menu-note">版本说明与产品信息</text></view><text class="menu-arrow">›</text></view>
+      </view>
+    </view>
+
+    <button class="logout-button" bindtap="logout">退出当前账号</button>
+    <text class="version">一键游 Mini Program · 1.0.0</text>
+  </view>
+
+  <view wx:if="{{showEdit}}" class="edit-mask" bindtap="closeEdit"></view>
+  <view class="edit-sheet {{showEdit ? 'open' : ''}}">
+    <view class="sheet-handle"></view>
+    <view class="sheet-head"><view><text class="sheet-title">编辑个人资料</text><text class="sheet-copy">让一键游更自然地称呼你</text></view><button bindtap="closeEdit">×</button></view>
+    <view class="edit-field"><text>昵称</text><input value="{{editForm.nickname}}" data-field="nickname" bindinput="onEditInput" placeholder="请输入昵称" maxlength="32" /></view>
+    <view class="edit-field"><text>头像地址</text><input value="{{editForm.avatarUrl}}" data-field="avatarUrl" bindinput="onEditInput" placeholder="可选，填写 https 图片地址" /></view>
+    <text wx:if="{{error}}" class="edit-error">{{error}}</text>
+    <button class="primary-button save-button" loading="{{saving}}" disabled="{{saving}}" bindtap="saveProfile">保存修改</button>
+  </view>
+</view>

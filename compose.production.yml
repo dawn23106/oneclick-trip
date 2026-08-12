@@ -1,0 +1,134 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-oneclick_trip}
+      MYSQL_USER: ${MYSQL_USERNAME:-oneclick_trip}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --max-connections=100
+      - --innodb-buffer-pool-size=256M
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    mem_limit: 768m
+    logging: *default-logging
+    networks: [app]
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 256m
+    logging: *default-logging
+    networks: [app]
+
+  chroma:
+    image: chromadb/chroma:1.5.9
+    restart: unless-stopped
+    environment:
+      IS_PERSISTENT: "TRUE"
+      ANONYMIZED_TELEMETRY: "FALSE"
+    volumes:
+      - chroma_data:/data
+    mem_limit: 768m
+    logging: *default-logging
+    networks: [app]
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      MYSQL_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-oneclick_trip}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      MYSQL_USERNAME: ${MYSQL_USERNAME:-oneclick_trip}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_SQL_INIT_MODE: never
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-1440}
+      APP_CORS_ALLOWED_ORIGIN_PATTERNS: ${APP_CORS_ALLOWED_ORIGIN_PATTERNS:-https://yjzdev.cn,https://www.yjzdev.cn}
+      AI_INTERNAL_SERVICE_SECRET: ${AI_INTERNAL_SERVICE_SECRET}
+      AI_SERVICE_BASE_URL: http://ai:8000
+      AI_SERVICE_CONNECT_TIMEOUT: 5s
+      AI_SERVICE_READ_TIMEOUT: 180s
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=25 -XX:+UseG1GC
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    mem_limit: 1g
+    logging: *default-logging
+    networks: [app]
+
+  ai:
+    build:
+      context: ./ai/travel_agent
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      INFRA_MODE: external
+      BUSINESS_BACKEND: java
+      JAVA_BACKEND_BASE_URL: http://backend:8080
+      AI_INTERNAL_SERVICE_SECRET: ${AI_INTERNAL_SERVICE_SECRET}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      CHECKPOINT_TTL_MINUTES: ${CHECKPOINT_TTL_MINUTES:-1440}
+      CHECKPOINT_REFRESH_ON_READ: "true"
+      AGENT_JOB_TTL_MINUTES: ${AGENT_JOB_TTL_MINUTES:-1440}
+      CHROMA_SERVER_URL: http://chroma:8000
+      CHROMA_COLLECTION: ${CHROMA_COLLECTION:-travel_knowledge_hash_v1}
+      EMBEDDING_BACKEND: hash
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      DEEPSEEK_FLASH_MODEL: ${DEEPSEEK_FLASH_MODEL:-deepseek-v4-flash}
+      DEEPSEEK_PRO_MODEL: ${DEEPSEEK_PRO_MODEL:-deepseek-v4-pro}
+      TOOL_HTTP_TIMEOUT_SECONDS: ${TOOL_HTTP_TIMEOUT_SECONDS:-15}
+      AGENT_REACH_ENABLED: "false"
+      XIAOHONGSHU_ENABLED: "false"
+    depends_on:
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      chroma:
+        condition: service_started
+    mem_limit: 1280m
+    logging: *default-logging
+    networks: [app]
+
+networks:
+  app:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  chroma_data:

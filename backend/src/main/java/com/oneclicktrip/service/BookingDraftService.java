@@ -1,0 +1,503 @@
+package com.oneclicktrip.service;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.oneclicktrip.common.BusinessException;
+import com.oneclicktrip.dto.BookingDraftActionRequest;
+import com.oneclicktrip.dto.BookingDraftCreateRequest;
+import com.oneclicktrip.dto.BookingDraftResponse;
+import com.oneclicktrip.dto.BookingDraftSummaryResponse;
+import com.oneclicktrip.dto.UserBookingDraftCreateRequest;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.UUID;
+
+@Service
+public class BookingDraftService {
+    private static final Set<String> ALLOWED_BOOKING_TYPES = Set.of(
+            "hotel", "train", "flight", "ticket", "transport"
+    );
+    private static final int DRAFT_TTL_MINUTES = 15;
+
+    private final JdbcTemplate jdbcTemplate;
+    private final ObjectMapper objectMapper;
+    private final SecureRandom secureRandom = new SecureRandom();
+
+    public BookingDraftService(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.objectMapper = objectMapper;
+    }
+
+    @Transactional
+    public BookingDraftResponse create(BookingDraftCreateRequest request) {
+        // 创建前校验所选 option ID 必须属于当前且未删除的方案版本。
+        String userId = requireNumericUserId(request.userId());
+        List<String> bookingTypes = normalizeBookingTypes(request.bookingTypes());
+        List<String> optionIds = request.selectedOptionIds().stream()
+                .filter(value -> value != null && !value.isBlank())
+                .distinct()
+                .toList();
+        if (optionIds.isEmpty()) {
+            throw new BusinessException("必须选择至少一个可预订选项");
+        }
+        JsonNode planState = loadCurrentPlan(
+                userId,
+                request.conversationId(),
+                request.planId(),
+                request.planVersion()
+        );
+        Set<String> allowedOptionIds = collectOptionIds(planState);
+        if (!allowedOptionIds.containsAll(optionIds)) {
+            throw new BusinessException("预订选项不属于当前方案或已经失效");
+        }
+
+        String draftId = "DRAFT-" + UUID.randomUUID().toString().replace("-", "").toUpperCase(Locale.ROOT);
+        String token = generateToken();
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expiresAt = now.plusMinutes(DRAFT_TTL_MINUTES);
+        jdbcTemplate.update(
+                """
+                        INSERT INTO ai_booking_draft
+                            (draft_id, user_id, conversation_id, plan_id, plan_version,
+                             booking_types_json, selected_option_ids_json, status,
+                             confirmation_token_hash, expires_at, create_time, update_time)
+                        VALUES (?, ?, ?, ?, ?, CAST(? AS JSON), CAST(? AS JSON),
+                                'PENDING_CONFIRMATION', ?, ?, ?, ?)
+                        """,
+                draftId,
+                userId,
+                request.conversationId(),
+                request.planId(),
+                request.planVersion(),
+                writeJson(bookingTypes),
+                writeJson(optionIds),
+                sha256(token),
+                Timestamp.valueOf(expiresAt),
+                Timestamp.valueOf(now),
+                Timestamp.valueOf(now)
+        );
+        return new BookingDraftResponse(
+                draftId,
+                "pending_confirmation",
+                request.conversationId(),
+                userId,
+                request.planId(),
+                request.planVersion(),
+                bookingTypes,
+                optionIds,
+                now,
+                expiresAt,
+                token
+        );
+    }
+
+    @Transactional
+    public BookingDraftResponse confirm(String draftId, BookingDraftActionRequest request) {
+        // 内部 Agent 确认需要同时校验绑定信息、短时令牌和幂等键。
+        return changeStatus(draftId, request, "CONFIRMED");
+    }
+
+    @Transactional
+    public BookingDraftResponse cancel(String draftId, BookingDraftActionRequest request) {
+        // 取消与确认共用状态机，只允许处理待确认草稿。
+        return changeStatus(draftId, request, "CANCELLED");
+    }
+
+    public BookingDraftResponse get(String draftId, String rawUserId) {
+        // 不向调用方返回数据库保存的确认令牌摘要。
+        DraftRow row = loadDraft(draftId, false);
+        String userId = requireNumericUserId(rawUserId);
+        if (!row.userId().equals(userId)) {
+            throw new BusinessException("订单草稿不存在或无权查看");
+        }
+        return toResponse(row, null);
+    }
+
+    @Transactional
+    public BookingDraftResponse createForUser(Long userId, UserBookingDraftCreateRequest request) {
+        // 普通用户入口从 JWT 注入 userId，并隐藏仅供 Agent 使用的确认令牌。
+        BookingDraftResponse created = create(new BookingDraftCreateRequest(
+                String.valueOf(userId),
+                request.conversationId(),
+                request.planId(),
+                request.planVersion(),
+                request.bookingTypes(),
+                request.selectedOptionIds()
+        ));
+        return withoutConfirmationToken(created);
+    }
+
+    @Transactional
+    public List<BookingDraftSummaryResponse> listForUser(Long userId, String rawStatus) {
+        // 查询前先将超过有效期的待确认草稿批量标记为已过期。
+        expirePendingDrafts(String.valueOf(userId));
+        String status = normalizeStatusFilter(rawStatus);
+        String statusClause = status == null ? "" : " AND d.status = ?";
+        List<Object> parameters = new ArrayList<>();
+        parameters.add(String.valueOf(userId));
+        if (status != null) {
+            parameters.add(status);
+        }
+        return jdbcTemplate.query(
+                """
+                        SELECT d.draft_id, d.status, d.conversation_id, d.plan_id, d.plan_version,
+                               d.booking_types_json, d.selected_option_ids_json,
+                               d.expires_at, d.create_time, p.destination
+                        FROM ai_booking_draft d
+                        LEFT JOIN ai_travel_plan_versions p
+                          ON p.user_id = d.user_id
+                         AND p.conversation_id = d.conversation_id
+                         AND p.plan_id = d.plan_id
+                         AND p.plan_version = d.plan_version
+                        WHERE d.user_id = ?
+                        """ + statusClause + " ORDER BY d.create_time DESC",
+                (resultSet, rowNum) -> new BookingDraftSummaryResponse(
+                        resultSet.getString("draft_id"),
+                        resultSet.getString("status").toLowerCase(Locale.ROOT),
+                        resultSet.getString("conversation_id"),
+                        resultSet.getString("plan_id"),
+                        resultSet.getInt("plan_version"),
+                        resultSet.getString("destination"),
+                        readStringList(resultSet.getString("booking_types_json")),
+                        readStringList(resultSet.getString("selected_option_ids_json")),
+                        resultSet.getTimestamp("create_time").toLocalDateTime(),
+                        resultSet.getTimestamp("expires_at").toLocalDateTime()
+                ),
+                parameters.toArray()
+        );
+    }
+
+    @Transactional
+    public BookingDraftResponse confirmForUser(String draftId, Long userId) {
+        // 用户端确认以 JWT 用户归属替代内部确认令牌校验。
+        return changeStatusForUser(draftId, userId, "CONFIRMED");
+    }
+
+    @Transactional
+    public BookingDraftResponse cancelForUser(String draftId, Long userId) {
+        // 用户只能取消属于自己的待确认草稿。
+        return changeStatusForUser(draftId, userId, "CANCELLED");
+    }
+
+    private BookingDraftResponse changeStatus(
+            String draftId,
+            BookingDraftActionRequest request,
+            String targetStatus
+    ) {
+        DraftRow row = loadDraft(draftId, true);
+        String userId = requireNumericUserId(request.userId());
+        assertBinding(row, request, userId);
+        if (!MessageDigest.isEqual(
+                row.confirmationTokenHash().getBytes(StandardCharsets.UTF_8),
+                sha256(request.confirmationToken()).getBytes(StandardCharsets.UTF_8)
+        )) {
+            throw new BusinessException("确认凭证无效");
+        }
+        if (row.status().equals(targetStatus)) {
+            if (request.idempotencyKey().equals(row.idempotencyKey())) {
+                return toResponse(row, null);
+            }
+            throw new BusinessException("订单草稿已经处理，幂等键不匹配");
+        }
+        if (!"PENDING_CONFIRMATION".equals(row.status())) {
+            throw new BusinessException("订单草稿当前状态不可操作");
+        }
+        if (row.expiresAt().isBefore(LocalDateTime.now())) {
+            jdbcTemplate.update(
+                    "UPDATE ai_booking_draft SET status = 'EXPIRED', update_time = ? WHERE draft_id = ?",
+                    Timestamp.valueOf(LocalDateTime.now()),
+                    draftId
+            );
+            throw new BusinessException("订单草稿已经过期");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        try {
+            jdbcTemplate.update(
+                    """
+                            UPDATE ai_booking_draft
+                            SET status = ?, idempotency_key = ?, confirmed_at = ?, update_time = ?
+                            WHERE draft_id = ? AND status = 'PENDING_CONFIRMATION'
+                            """,
+                    targetStatus,
+                    request.idempotencyKey(),
+                    "CONFIRMED".equals(targetStatus) ? Timestamp.valueOf(now) : null,
+                    Timestamp.valueOf(now),
+                    draftId
+            );
+        } catch (DuplicateKeyException exception) {
+            throw new BusinessException("幂等键已被其他请求使用");
+        }
+        return toResponse(row.withStatus(targetStatus, request.idempotencyKey()), null);
+    }
+
+    private BookingDraftResponse changeStatusForUser(String draftId, Long authenticatedUserId, String targetStatus) {
+        DraftRow row = loadDraft(draftId, true);
+        String userId = String.valueOf(authenticatedUserId);
+        if (!row.userId().equals(userId)) {
+            throw new BusinessException("订单草稿不存在或无权操作");
+        }
+        if (row.status().equals(targetStatus)) {
+            return toResponse(row, null);
+        }
+        if (!"PENDING_CONFIRMATION".equals(row.status())) {
+            throw new BusinessException("订单草稿当前状态不可操作");
+        }
+        if (row.expiresAt().isBefore(LocalDateTime.now())) {
+            jdbcTemplate.update(
+                    "UPDATE ai_booking_draft SET status = 'EXPIRED', update_time = ? WHERE draft_id = ?",
+                    Timestamp.valueOf(LocalDateTime.now()),
+                    draftId
+            );
+            throw new BusinessException("订单草稿已经过期");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        String idempotencyKey = "user:" + userId + ":" + draftId + ":" + targetStatus.toLowerCase(Locale.ROOT);
+        jdbcTemplate.update(
+                """
+                        UPDATE ai_booking_draft
+                        SET status = ?, idempotency_key = ?, confirmed_at = ?, update_time = ?
+                        WHERE draft_id = ? AND user_id = ? AND status = 'PENDING_CONFIRMATION'
+                        """,
+                targetStatus,
+                idempotencyKey,
+                "CONFIRMED".equals(targetStatus) ? Timestamp.valueOf(now) : null,
+                Timestamp.valueOf(now),
+                draftId,
+                userId
+        );
+        return toResponse(row.withStatus(targetStatus, idempotencyKey), null);
+    }
+
+    private void expirePendingDrafts(String userId) {
+        jdbcTemplate.update(
+                """
+                        UPDATE ai_booking_draft
+                        SET status = 'EXPIRED', update_time = ?
+                        WHERE user_id = ? AND status = 'PENDING_CONFIRMATION' AND expires_at < ?
+                        """,
+                Timestamp.valueOf(LocalDateTime.now()),
+                userId,
+                Timestamp.valueOf(LocalDateTime.now())
+        );
+    }
+
+    private String normalizeStatusFilter(String rawStatus) {
+        if (rawStatus == null || rawStatus.isBlank()) {
+            return null;
+        }
+        String status = rawStatus.trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("PENDING_CONFIRMATION", "CONFIRMED", "CANCELLED", "EXPIRED").contains(status)) {
+            throw new BusinessException("不支持的预订状态筛选");
+        }
+        return status;
+    }
+
+    private JsonNode loadCurrentPlan(
+            String userId,
+            String conversationId,
+            String planId,
+            int planVersion
+    ) {
+        List<JsonNode> rows = jdbcTemplate.query(
+                """
+                        SELECT plan_json
+                        FROM ai_travel_plan_versions
+                        WHERE user_id = ? AND conversation_id = ? AND plan_id = ?
+                          AND plan_version = ? AND is_current = 1 AND deleted = 0
+                        """,
+                (resultSet, rowNum) -> readJson(resultSet.getString("plan_json")),
+                userId,
+                conversationId,
+                planId,
+                planVersion
+        );
+        if (rows.isEmpty()) {
+            throw new BusinessException("当前方案不存在、版本已过期或不属于该用户");
+        }
+        return rows.get(0);
+    }
+
+    private DraftRow loadDraft(String draftId, boolean forUpdate) {
+        String suffix = forUpdate ? " FOR UPDATE" : "";
+        List<DraftRow> rows = jdbcTemplate.query(
+                """
+                        SELECT draft_id, user_id, conversation_id, plan_id, plan_version,
+                               booking_types_json, selected_option_ids_json, status,
+                               confirmation_token_hash, idempotency_key, expires_at, create_time
+                        FROM ai_booking_draft
+                        WHERE draft_id = ?
+                        """ + suffix,
+                (resultSet, rowNum) -> new DraftRow(
+                        resultSet.getString("draft_id"),
+                        resultSet.getString("user_id"),
+                        resultSet.getString("conversation_id"),
+                        resultSet.getString("plan_id"),
+                        resultSet.getInt("plan_version"),
+                        readStringList(resultSet.getString("booking_types_json")),
+                        readStringList(resultSet.getString("selected_option_ids_json")),
+                        resultSet.getString("status"),
+                        resultSet.getString("confirmation_token_hash"),
+                        resultSet.getString("idempotency_key"),
+                        resultSet.getTimestamp("expires_at").toLocalDateTime(),
+                        resultSet.getTimestamp("create_time").toLocalDateTime()
+                ),
+                draftId
+        );
+        if (rows.isEmpty()) {
+            throw new BusinessException("订单草稿不存在");
+        }
+        return rows.get(0);
+    }
+
+    private void assertBinding(DraftRow row, BookingDraftActionRequest request, String userId) {
+        if (!row.userId().equals(userId)
+                || !row.conversationId().equals(request.conversationId())
+                || !row.planId().equals(request.planId())
+                || row.planVersion() != request.planVersion()) {
+            throw new BusinessException("订单草稿与用户或当前方案不匹配");
+        }
+    }
+
+    private Set<String> collectOptionIds(JsonNode planState) {
+        Set<String> ids = new HashSet<>();
+        JsonNode selected = planState.path("selected_options");
+        selected.fields().forEachRemaining(entry -> {
+            if (entry.getValue().isArray()) {
+                entry.getValue().forEach(value -> ids.add(value.asText()));
+            }
+        });
+        JsonNode plan = planState.path("plan");
+        addText(ids, plan.path("hotel_area_id"));
+        addText(ids, plan.path("transport_option_id"));
+        plan.path("days").forEach(day -> {
+            addText(ids, day.path("hotel_option_id"));
+            day.path("items").forEach(item -> addText(ids, item.path("ticket_option_id")));
+        });
+        ids.remove("");
+        return ids;
+    }
+
+    private void addText(Set<String> ids, JsonNode value) {
+        if (value.isTextual() && !value.asText().isBlank()) {
+            ids.add(value.asText());
+        }
+    }
+
+    private List<String> normalizeBookingTypes(List<String> values) {
+        List<String> normalized = new ArrayList<>();
+        for (String value : values) {
+            String item = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+            if (!ALLOWED_BOOKING_TYPES.contains(item)) {
+                throw new BusinessException("不支持的预订类型：" + value);
+            }
+            if (!normalized.contains(item)) {
+                normalized.add(item);
+            }
+        }
+        return List.copyOf(normalized);
+    }
+
+    private BookingDraftResponse toResponse(DraftRow row, String token) {
+        return new BookingDraftResponse(
+                row.draftId(), row.status().toLowerCase(Locale.ROOT), row.conversationId(), row.userId(),
+                row.planId(), row.planVersion(), row.bookingTypes(), row.selectedOptionIds(),
+                row.createdAt(), row.expiresAt(), token
+        );
+    }
+
+    private BookingDraftResponse withoutConfirmationToken(BookingDraftResponse response) {
+        return new BookingDraftResponse(
+                response.draftId(), response.status(), response.conversationId(), response.userId(),
+                response.planId(), response.planVersion(), response.bookingTypes(),
+                response.selectedOptionIds(), response.createdAt(), response.expiresAt(), null
+        );
+    }
+
+    private String generateToken() {
+        byte[] bytes = new byte[32];
+        secureRandom.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private String sha256(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 unavailable", exception);
+        }
+    }
+
+    private String requireNumericUserId(String value) {
+        if (value == null || !value.matches("[1-9]\\d*")) {
+            throw new BusinessException("user_id 必须是有效的登录用户编号");
+        }
+        return value;
+    }
+
+    private JsonNode readJson(String value) {
+        try {
+            return objectMapper.readTree(value);
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException("方案 JSON 数据格式异常");
+        }
+    }
+
+    private List<String> readStringList(String value) {
+        try {
+            return objectMapper.readValue(value, new TypeReference<>() { });
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException("订单草稿 JSON 数据格式异常");
+        }
+    }
+
+    private String writeJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException("无法序列化订单草稿");
+        }
+    }
+
+    private record DraftRow(
+            String draftId,
+            String userId,
+            String conversationId,
+            String planId,
+            int planVersion,
+            List<String> bookingTypes,
+            List<String> selectedOptionIds,
+            String status,
+            String confirmationTokenHash,
+            String idempotencyKey,
+            LocalDateTime expiresAt,
+            LocalDateTime createdAt
+    ) {
+        DraftRow withStatus(String newStatus, String newIdempotencyKey) {
+            return new DraftRow(
+                    draftId, userId, conversationId, planId, planVersion,
+                    bookingTypes, selectedOptionIds, newStatus, confirmationTokenHash,
+                    newIdempotencyKey, expiresAt, createdAt
+            );
+        }
+    }
+}

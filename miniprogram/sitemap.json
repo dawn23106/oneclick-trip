@@ -1,0 +1,4 @@
+{
+  "desc": "一键游小程序页面索引",
+  "rules": [{ "action": "allow", "page": "*" }]
+}
