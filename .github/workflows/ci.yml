@@ -71,12 +71,14 @@ jobs:
         run: npm run build
 
   miniprogram-check:
-    name: Miniprogram JavaScript Check
+    name: Miniprogram Config and JavaScript Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
+      - name: Validate project configuration
+        run: node -e "JSON.parse(require('fs').readFileSync('miniprogram/project.config.json', 'utf8'))"
       - name: Check JavaScript syntax
         run: find miniprogram -name '*.js' -print0 | xargs -0 -n1 node --check
