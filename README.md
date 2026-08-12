@@ -8,7 +8,7 @@
 - 用户 Web 端：城市与模板浏览、AI 助手、Markdown 对话展示、个人资料与行程管理。
 - 管理后台：城市、景点、美食、酒店、模板、用户、会话、Agent 运行日志、知识库和预订管理。
 - Java 业务后端：Spring Boot、JWT、MyBatis-Plus、MySQL、行程和预订 API、AI 服务桥接。
-- Python AI 服务：FastAPI、LangGraph、DeepSeek 结构化输出、Redis Checkpoint、MySQL 方案恢复。
+- Python AI 服务：FastAPI、LangGraph StateGraph、DeepSeek 结构化输出、Redis Checkpoint、MySQL 方案恢复。
 - 旅行规划：意图识别、槽位追问、两阶段研究、预算校验、行程生成、自动评审与修订。
 - 美食规划：每天显式安排午餐和晚餐，并根据当天景点区域、人数和预算给出建议。
 - 外部工具：Open-Meteo 天气、Nominatim 坐标、OSRM 路线；非实时信息会明确标记为 AI 估算。
@@ -30,17 +30,39 @@ oneclick-trip/
 
 AI 服务的本地开发与生产运行说明见 [Travel Agent README](ai/travel_agent/README.md)。
 
+## Agent 架构亮点
+
+项目以显式的 LangGraph `StateGraph` 为工作流主干，而不是直接把完整业务交给通用 ReAct 循环：大模型负责意图识别、规划、评审等需要推理的节点，预算、时间、状态流转和预订确认等确定性规则由代码节点控制。
+
+- **分层状态图**：根图恢复会话与长期偏好，经意图识别后由 Supervisor 条件路由到查询、规划、修改、预订四个业务子图。
+- **质量闭环**：规划子图执行两阶段研究和候选校验，并通过“生成 → 硬规则校验 → Agent 评审 → 代码修复/重新规划”闭环减少日期、预算和时间冲突。
+- **可恢复执行**：根图接入 Redis Checkpoint，子图共享 `TravelState` 与持久化上下文，支持多轮方案修改和进程重启后的会话恢复。
+- **人工确认节点**：预订子图通过 LangGraph `interrupt` 暂停执行，收到用户确认后恢复，并校验用户、方案版本、过期时间和幂等状态。
+
 ## 核心流程
 
 ```mermaid
-flowchart LR
-    U[用户输入] --> I[意图识别与槽位补全]
-    I --> R[目的地研究与候选校验]
-    R --> P[生成景点与美食行程]
-    P --> V[预算/时间/路线硬校验]
-    V --> S[保存版本]
-    S --> M[继续修改]
-    S --> B[创建预订草稿]
+flowchart TD
+    U[用户输入] --> C[Redis Checkpoint 恢复会话]
+    C --> M[加载长期偏好]
+    M --> I[意图识别与状态归一化]
+    I --> S{Supervisor 条件路由}
+    S --> Q[查询子图]
+    S --> P[规划子图]
+    S --> X[修改子图]
+    S --> B[预订子图]
+
+    P --> R[两阶段研究与候选校验]
+    R --> G[生成行程]
+    G --> V[预算/时间/路线硬校验]
+    V --> A[Agent 评审]
+    A -->|通过| SAVE[保存方案版本]
+    A -->|可修复| FIX[代码修复或重新规划]
+    FIX --> V
+
+    B --> D[创建预订草稿]
+    D --> H[interrupt 等待用户确认]
+    H --> E[恢复执行并确认或取消]
 ```
 
 ## 本地运行
