@@ -61,7 +61,7 @@ flowchart LR
 docker compose up -d
 ```
 
-默认端口：MySQL `3306`、Redis `6379`、Chroma `8001`。
+默认端口：MySQL `3306`、Redis `6379`、Chroma `8001`。开发环境中的基础设施端口仅绑定 `127.0.0.1`；生产环境的 Chroma 仅在容器内部网络开放，请勿直接暴露到公网。
 
 ### 2. 启动 AI 服务
 

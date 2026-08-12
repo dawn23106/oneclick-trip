@@ -8,7 +8,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-oneclick_trip}
       TZ: Asia/Shanghai
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
@@ -20,7 +20,7 @@ services:
     container_name: oneclick-trip-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -35,7 +35,7 @@ services:
     container_name: oneclick-trip-chroma
     restart: unless-stopped
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     environment:
       IS_PERSISTENT: "TRUE"
       ANONYMIZED_TELEMETRY: "FALSE"
