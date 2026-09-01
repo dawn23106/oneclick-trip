@@ -7,6 +7,7 @@ from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from app.prompt_policy import AGENT_SECURITY_POLICY
 
 from app.domain.models import (
     CandidateSelection,
@@ -200,7 +201,7 @@ class LangChainModifyAnalyzerAgent:
     ) -> list[SystemMessage | HumanMessage]:
         return [
             SystemMessage(
-                content=(
+                content=AGENT_SECURITY_POLICY + (
                     "分析用户对已有行程的修改，只输出结构化 ModifyAnalysis。"
                     "地点替换、日期变化或移除某类景点时 impact 使用 research_required，"
                     "discovery_tools 和 dependent_tools 必须为空；"

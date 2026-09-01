@@ -5,6 +5,7 @@ from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from app.prompt_policy import AGENT_SECURITY_POLICY
 
 from app.domain.models import (
     HardValidationResult,
@@ -172,7 +173,7 @@ class LangChainReviewerAgent:
         )
         return [
             SystemMessage(
-                content=(
+                content=AGENT_SECURITY_POLICY + (
                     "你是旅游体验评审员，只评价偏好匹配、节奏和体验。"
                     "不要重新计算预算或日期。hard_pass 为 false 时 verdict 必须是 revise。"
                     f"{grounding_rule}"

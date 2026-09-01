@@ -94,6 +94,7 @@ class AgentRunJobResponse(BaseModel):
     progress: int = Field(ge=0, le=100)
     detail: str
     model_mode: str = "unknown"
+    prompt_policy_version: str = "unknown"
     started_at: str | None = None
     completed_at: str | None = None
     duration_ms: int | None = None
@@ -106,6 +107,7 @@ class AgentRunJobResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     phase: str
+    prompt_policy_version: str
 
 
 class InfrastructureHealthResponse(BaseModel):

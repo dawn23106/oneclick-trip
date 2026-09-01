@@ -5,6 +5,7 @@ from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from app.prompt_policy import AGENT_SECURITY_POLICY
 
 from app.domain.models import (
     MemoryExtraction,
@@ -47,7 +48,7 @@ class LangChainMemoryCandidateAgent:
     ) -> list[SystemMessage | HumanMessage]:
         return [
             SystemMessage(
-                content=(
+                content=AGENT_SECURITY_POLICY + (
                     "你是长期旅游记忆提取 Agent，只输出 JSON，不要 Markdown。"
                     "只保存跨多次旅行仍有价值的稳定习惯，例如‘我通常喜欢睡到自然醒’、"
                     "‘我不吃辣’、‘以后优先高铁’。一次性的目的地、日期、人数和本次预算不是长期记忆；"

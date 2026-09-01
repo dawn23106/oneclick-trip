@@ -7,6 +7,7 @@ from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from app.prompt_policy import AGENT_SECURITY_POLICY
 
 from app.domain.models import (
     BudgetScope,
@@ -103,7 +104,7 @@ class LangChainRevisionAgent:
     ) -> list[SystemMessage | HumanMessage]:
         return [
             SystemMessage(
-                content=(
+                content=AGENT_SECURITY_POLICY + (
                     "你是一键游的行程修订 Agent。根据代码硬校验错误和体验评审意见，输出完整的修订后方案。"
                     "优先修复硬错误，再改善节奏与偏好匹配。不得新增原方案中不存在的 location_id、"
                     "ticket_option_id、hotel_area_id 或 transport_option_id；不得改变 plan_id、version、"

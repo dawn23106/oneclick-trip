@@ -7,6 +7,7 @@ from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from app.prompt_policy import AGENT_SECURITY_POLICY
 
 from app.domain.models import (
     BudgetMode,
@@ -85,7 +86,7 @@ class LangChainIntentAgent:
         context_json = (context or IntentContext()).model_dump_json()
         return [
             SystemMessage(
-                content=(
+                content=AGENT_SECURITY_POLICY + (
                     "你是‘一键游’的意图识别与槽位抽取 Agent。结合最近对话、长期偏好、当前方案和预订草稿理解指代，"
                     "但 entities 只提取用户本轮明确表达或明确补充的值，不得从记忆中伪造新槽位。"
                     "只输出结构化结果。intent 必须使用给定枚举，不要决定工作流，不要补造预算、人数、日期或选项 ID。"

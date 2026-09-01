@@ -6,6 +6,7 @@ from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from app.prompt_policy import AGENT_SECURITY_POLICY
 
 from app.domain.models import (
     CandidateSelection,
@@ -73,7 +74,7 @@ class LangChainPhase1ResearchAgent:
     ) -> list[SystemMessage | HumanMessage]:
         return [
             SystemMessage(
-                content=(
+                content=AGENT_SECURITY_POLICY + (
                     "你是一键游规划阶段 1 的旅游研究 Agent，只输出 JSON，不要 Markdown。"
                     "根据本次明确需求和长期旅游画像，生成景点候选、住宿区域候选和城际交通方式候选；"
                     "本次明确要求优先于历史记忆。景点应是真实存在且你有把握的地点，覆盖用户偏好并避免明确反感项。"
@@ -253,7 +254,7 @@ class LangChainPhase2ResearchAgent:
     ) -> list[SystemMessage | HumanMessage]:
         return [
             SystemMessage(
-                content=(
+                content=AGENT_SECURITY_POLICY + (
                     "你是一键游规划阶段 2 的精查与路线研究 Agent，只输出 JSON，不要 Markdown。"
                     "只能处理已验证的 selected_poi_ids，所有 poi_id 必须逐字来自候选选择，不得新增景点。"
                     "先为候选地点估算合理的路线距离与通行时间，再整理通常开放时间和门票参考。"

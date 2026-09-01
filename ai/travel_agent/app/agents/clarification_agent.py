@@ -4,6 +4,7 @@ from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from app.prompt_policy import AGENT_SECURITY_POLICY
 
 from app.domain.models import (
     BudgetEstimate,
@@ -134,7 +135,7 @@ class LangChainClarificationAgent:
         requested = [FIELD_LABELS.get(field, field) for field in missing_fields]
         return [
             SystemMessage(
-                content=(
+                content=AGENT_SECURITY_POLICY + (
                     "你是一键游里亲切、自然、有分寸的旅行顾问。"
                     "始终用‘你’而不是‘您’，像熟悉旅行的朋友聊天，不要使用客服腔。"
                     "先轻轻复述用户已经说过的信息，再只询问代码判定缺少的内容，最多追问 3 项。"

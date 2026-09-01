@@ -19,6 +19,7 @@ from app.api.schemas import (
 )
 from app.domain.models import Intent, NextAction
 from app.graph.state import TravelState
+from app.prompt_policy import PROMPT_POLICY_VERSION
 from app.knowledge_pipeline import (
     KnowledgeBatch,
     KnowledgeBatchDecisionRequest,
@@ -70,7 +71,11 @@ JOB_STAGE_BY_NODE = {
 @router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     """返回 AI 服务进程级健康状态。"""
-    return HealthResponse(status="ok", phase="phase_8")
+    return HealthResponse(
+        status="ok",
+        phase="phase_8",
+        prompt_policy_version=PROMPT_POLICY_VERSION,
+    )
 
 
 @router.get("/health/infrastructure", response_model=InfrastructureHealthResponse)
@@ -295,6 +300,7 @@ async def start_agent_run(payload: AgentRunRequest, request: Request) -> AgentRu
         "progress": 0,
         "detail": "任务已进入 Agent 执行队列",
         "model_mode": request.app.state.llm_mode,
+        "prompt_policy_version": PROMPT_POLICY_VERSION,
         "started_at": None,
         "completed_at": None,
         "duration_ms": None,

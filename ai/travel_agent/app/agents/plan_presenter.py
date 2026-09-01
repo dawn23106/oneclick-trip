@@ -4,6 +4,7 @@ from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from app.prompt_policy import AGENT_SECURITY_POLICY
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.models import (
@@ -73,7 +74,7 @@ class LangChainPlanPresenterAgent:
         del review, revision_count, tool_results, phase1
         return [
             SystemMessage(
-                content=(
+                content=AGENT_SECURITY_POLICY + (
                     "你负责给已完成的旅行方案写两句自然中文，不负责复述行程事实。"
                     "opening 表达方案已经准备好及整体感觉；preference_note 只说明它如何照顾给定偏好。"
                     "不得加入任何景点、人物、动物昵称、菜名、酒店、交通、价格、日期、引用或预订信息。"

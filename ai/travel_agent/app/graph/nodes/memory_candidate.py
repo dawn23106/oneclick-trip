@@ -8,6 +8,7 @@ from app.database.contracts import UserPreferenceRepository
 from app.domain.models import MemoryExtraction, MemoryItem, TravelEntities, UserPreferences
 from app.graph.nodes.state_normalizer import merge_preferences
 from app.graph.state import TravelState, TravelStatePatch
+from app.prompt_policy import is_safe_memory_text
 
 
 ALLOWED_CATEGORIES = {
@@ -64,6 +65,10 @@ def _build_patch(state: TravelState, extraction: MemoryExtraction) -> TravelStat
         for operation in extraction.operations
         if operation.category in ALLOWED_CATEGORIES
         and operation.evidence.strip()
+        and all(
+            is_safe_memory_text(value)
+            for value in (operation.key, operation.value, operation.evidence)
+        )
         and not any(marker in operation.evidence for marker in SENSITIVE_MARKERS)
         and (operation.action == "delete" or operation.confidence >= 0.85)
         and _is_durable_memory(operation, query)

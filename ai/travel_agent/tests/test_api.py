@@ -4,6 +4,7 @@ from httpx import ASGITransport, AsyncClient, Response
 
 from app.main import create_app
 from app.memory.checkpoints import InMemoryCheckpointBackend
+from app.prompt_policy import PROMPT_POLICY_VERSION
 
 
 def request(method: str, path: str, *, json: dict | None = None) -> Response:
@@ -21,7 +22,11 @@ def test_health_endpoint() -> None:
     response = request("GET", "/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "phase": "phase_8"}
+    assert response.json() == {
+        "status": "ok",
+        "phase": "phase_8",
+        "prompt_policy_version": PROMPT_POLICY_VERSION,
+    }
 
 
 def test_isolated_app_reports_in_memory_infrastructure() -> None:
@@ -131,6 +136,7 @@ def test_async_run_can_be_polled_until_the_agent_completes() -> None:
     assert body["status"] == "COMPLETED"
     assert body["progress"] == 100
     assert body["model_mode"] == "rules"
+    assert body["prompt_policy_version"] == PROMPT_POLICY_VERSION
     assert body["started_at"] is not None
     assert body["completed_at"] is not None
     assert body["duration_ms"] >= 0

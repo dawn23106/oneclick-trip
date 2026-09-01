@@ -6,6 +6,7 @@ from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from app.prompt_policy import AGENT_SECURITY_POLICY
 
 from app.domain.models import (
     MemoryExtraction,
@@ -45,7 +46,7 @@ class LangChainPlanPreferenceAgent:
     ) -> list:
         return [
             SystemMessage(
-                content=(
+                content=AGENT_SECURITY_POLICY + (
                     "你负责从用户保存的旅行行程中提取可复用的旅行倾向。"
                     "只提取节奏、预算风格、美食、交通、住宿、活动和避雷倾向；"
                     "不要把目的地本身当成长期偏好，不要推断敏感属性。"

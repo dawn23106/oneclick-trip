@@ -6,6 +6,7 @@ from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from app.prompt_policy import AGENT_SECURITY_POLICY
 
 from app.domain.models import Intent, IntentTask, ToolName, ToolResult, TravelEntities
 
@@ -155,7 +156,7 @@ class LangChainQueryPresenterAgent:
         )
         return [
             SystemMessage(
-                content=(
+                content=AGENT_SECURITY_POLICY + (
                     "你是一键游的旅行咨询 Agent。完整覆盖用户本轮列出的所有查询子任务，但不要强行生成完整行程，"
                     "也不要追问与本次查询无关的预算、人数或旅行天数。"
                     f"{source_rule}"

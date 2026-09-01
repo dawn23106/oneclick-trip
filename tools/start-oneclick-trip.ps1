@@ -214,7 +214,11 @@ try {
         Start-LoggedProcess `
             -Name 'fastapi' `
             -FilePath $pythonPath `
-            -ArgumentList @('-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000') `
+            -ArgumentList @(
+                '-m', 'uvicorn', 'app.main:app',
+                '--host', '127.0.0.1', '--port', '8000',
+                '--reload', '--reload-dir', 'app'
+            ) `
             -WorkingDirectory (Join-Path $repoRoot 'ai\travel_agent') | Out-Null
     } else {
         Write-Step 'FastAPI is already running.'

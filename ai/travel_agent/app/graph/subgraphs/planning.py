@@ -113,7 +113,7 @@ def build_planning_subgraph(
     plan_repository: PlanRepository | None = None,
     preference_repository: UserPreferenceRepository | None = None,
 ) -> CompiledStateGraph:
-    """Build the two-stage planning workflow inspired by the Dify prototype."""
+    """Build the native LangGraph two-stage planning workflow."""
     graph = StateGraph(TravelState)
     graph.add_node(
         "phase1_research",

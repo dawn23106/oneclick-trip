@@ -7,6 +7,7 @@ from app.domain.models import (
     UserPreferences,
 )
 from app.graph.state import TravelState, TravelStatePatch
+from app.prompt_policy import is_safe_memory_text
 
 
 REGION_LEVEL_DESTINATIONS = {
@@ -54,10 +55,14 @@ def sanitize_preferences(preferences: UserPreferences) -> UserPreferences:
     removed_dislikes: set[str] = set()
     for item in preferences.memory_items:
         evidence = item.evidence.strip()
+        unsafe = not all(
+            is_safe_memory_text(value)
+            for value in (item.key, item.value, item.evidence)
+        )
         one_off = any(marker in evidence for marker in ONE_OFF_MEMORY_MARKERS)
         stable = any(marker in evidence for marker in STABLE_MEMORY_MARKERS)
         generic_other = item.value in {"其他景点", "其它景点", "别的景点"}
-        contaminated = (one_off and not stable) or generic_other
+        contaminated = unsafe or (one_off and not stable) or generic_other
         if contaminated:
             if item.category == "avoidance":
                 removed_dislikes.add(item.value)
@@ -66,16 +71,28 @@ def sanitize_preferences(preferences: UserPreferences) -> UserPreferences:
             continue
         retained_items.append(item)
 
-    liked = [item for item in preferences.liked_tags if item not in removed_likes]
+    liked = [
+        item
+        for item in preferences.liked_tags
+        if item not in removed_likes and is_safe_memory_text(item)
+    ]
     disliked = [
         item
         for item in preferences.disliked_tags
-        if item not in removed_dislikes and item not in {"其他景点", "其它景点", "别的景点"}
+        if item not in removed_dislikes
+        and item not in {"其他景点", "其它景点", "别的景点"}
+        and is_safe_memory_text(item)
     ]
+    preferred_transport = [
+        item for item in preferences.preferred_transport if is_safe_memory_text(item)
+    ]
+    pace = preferences.pace if preferences.pace is None or is_safe_memory_text(preferences.pace) else None
     if (
         retained_items == preferences.memory_items
         and liked == preferences.liked_tags
         and disliked == preferences.disliked_tags
+        and preferred_transport == preferences.preferred_transport
+        and pace == preferences.pace
     ):
         return preferences
     return preferences.model_copy(
@@ -83,6 +100,8 @@ def sanitize_preferences(preferences: UserPreferences) -> UserPreferences:
             "memory_items": retained_items,
             "liked_tags": liked,
             "disliked_tags": disliked,
+            "preferred_transport": preferred_transport,
+            "pace": pace,
             "source_version": preferences.source_version + 1,
         }
     )

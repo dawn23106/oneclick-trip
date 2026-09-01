@@ -8,6 +8,7 @@ from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from app.prompt_policy import AGENT_SECURITY_POLICY
 
 from app.agents.meal_planning import ensure_daily_meals
 from app.domain.models import (
@@ -74,8 +75,8 @@ class LangChainPlannerAgent:
         del conversation_id, current_version
         return [
             SystemMessage(
-                content=(
-                    "你是 Dify V3 一键游中的完整行程规划 Agent，只输出完整 JSON 行程。"
+                content=AGENT_SECURITY_POLICY + (
+                    "你是一键游 LangGraph 工作流中的完整行程规划 Agent，只输出完整 JSON 行程。"
                     "只能使用给定候选、路线、开放时间和门票数据，"
                     "不得编造景点 ID、酒店区域 ID、交通选项 ID 或票务选项 ID。"
                     "本次明确需求优先于长期偏好；安排应避免时间冲突和无效折返。"

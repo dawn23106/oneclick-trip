@@ -8,6 +8,7 @@ from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from app.prompt_policy import AGENT_SECURITY_POLICY
 
 from app.agents.meal_planning import ensure_daily_meals, looks_like_food
 from app.domain.models import (
@@ -73,7 +74,7 @@ class LangChainDirectPlannerAgent:
         del conversation_id, current_version
         return [
             SystemMessage(
-                content=(
+                content=AGENT_SECURITY_POLICY + (
                     "你是一键游的高级旅行规划 Agent。直接使用你的通用知识生成方案，不使用任何 Mock 候选、"
                     "虚构接口返回或伪造的实时数据。可以推荐真实存在且你有把握的景点、区域、美食与交通方式，"
                     "但必须明确它们是 AI 知识建议；不得声称价格、营业时间、票务余量或班次为实时信息。"

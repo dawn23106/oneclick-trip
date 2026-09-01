@@ -5,6 +5,7 @@ from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from app.prompt_policy import AGENT_SECURITY_POLICY
 
 from app.agents.direct_planner_agent import LangChainDirectPlannerAgent
 from app.agents.modify_agent import RuleBasedModifyAgent, RuleBasedModifyAnalyzerAgent
@@ -63,7 +64,7 @@ class LangChainDirectModifyAgent:
         del conversation_id
         return [
             SystemMessage(
-                content=(
+                content=AGENT_SECURITY_POLICY + (
                     "你是一键游的行程修改 Agent。根据用户要求定位具体 day_index、时段或活动，修改当前 TravelPlan。"
                     "保留未受影响的安排；需要替换地点时可以使用通用知识补充用户点名的真实地点，但不得"
                     "宣称营业时间、价格、余量或路线为实时信息。输出完整新方案，不要只返回差异。"

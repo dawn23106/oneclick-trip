@@ -5,6 +5,7 @@ from typing import Protocol
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from app.prompt_policy import AGENT_SECURITY_POLICY
 
 from app.domain.models import (
     CandidateSelection,
@@ -130,8 +131,8 @@ class LangChainCandidateSelectorAgent:
     ) -> list[SystemMessage | HumanMessage]:
         return [
             SystemMessage(
-                content=(
-                    "你是 Dify V3 一键游中的候选景点与住宿区域选择 Agent，只输出 JSON。"
+                content=AGENT_SECURITY_POLICY + (
+                    "你是一键游 LangGraph 工作流中的候选景点与住宿区域选择 Agent，只输出 JSON。"
                     "根据 TravelState 和第一阶段结果选择 selected_pois、hotel_area_id、"
                     "transport_option_id 与 destinations。selected_pois 每项必须包含 poi_id、"
                     "visit_date、estimated_duration_minutes；没有真实日期时 visit_date 使用 DAY_1、DAY_2。"

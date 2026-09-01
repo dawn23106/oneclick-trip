@@ -8,6 +8,7 @@ from langchain_core.messages import AIMessage
 from app.database.contracts import UserPreferenceRepository
 from app.domain.models import NextAction, UserPreferences
 from app.graph.state import TravelState, TravelStatePatch
+from app.prompt_policy import is_safe_memory_text
 
 
 def persist_observed_preferences(state: TravelState) -> TravelStatePatch:
@@ -55,6 +56,18 @@ def _preference_patch(state: TravelState, *, include_message: bool) -> TravelSta
 
     explicit_likes = list(dict.fromkeys(entities.explicit_preferences))
     explicit_dislikes = list(dict.fromkeys(entities.explicit_dislikes))
+    if not all(is_safe_memory_text(item) for item in explicit_likes + explicit_dislikes):
+        rejected: TravelStatePatch = {"memory_errors": ["UNSAFE_MEMORY_CONTENT_REJECTED"]}
+        if include_message:
+            rejected.update(
+                {
+                    "messages": [
+                        AIMessage(content="这段内容不能作为长期旅行偏好保存，请只描述旅行习惯。")
+                    ],
+                    "next_action": NextAction.COMPLETE,
+                }
+            )
+        return rejected
     liked = explicit_likes + [
         tag
         for tag in current.liked_tags
