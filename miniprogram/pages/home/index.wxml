@@ -36,6 +36,70 @@
   <view class="page-shell content-shell">
     <view wx:if="{{error}}" class="error-banner" bindtap="loadData">{{error}}，点击重试</view>
 
+    <view wx:if="{{currentCity}}" class="nearby-section">
+      <view class="section-head nearby-section-head">
+        <view>
+          <text class="section-eyebrow">NEAR YOU</text>
+          <view class="section-title">{{currentCity}}吃喝玩乐</view>
+        </view>
+        <view class="nearby-location"><text class="nearby-location-dot"></text>已定位</view>
+      </view>
+
+      <view wx:if="{{nearbyLoading}}" class="nearby-loading card">
+        <view class="skeleton nearby-loading-title"></view>
+        <view class="skeleton nearby-loading-line"></view>
+        <view class="skeleton nearby-loading-line short"></view>
+      </view>
+
+      <view wx:elif="{{nearbyHasCatalog}}" class="nearby-panel card">
+        <view class="nearby-panel-head">
+          <view>
+            <text class="nearby-panel-kicker">当前城市精选</text>
+            <text class="nearby-panel-copy">按城市旅游资料推荐，不代表实时距离排序</text>
+          </view>
+          <text class="nearby-panel-more" bindtap="openNearbyCity">查看全部 →</text>
+        </view>
+
+        <scroll-view wx:if="{{nearbySpots.length}}" class="nearby-spot-scroll" scroll-x enhanced show-scrollbar="false">
+          <view class="nearby-spot-row">
+            <view wx:for="{{nearbySpots}}" wx:key="id" class="nearby-spot-card" bindtap="openNearbyCity">
+              <image wx:if="{{item.imageSrc}}" src="{{item.imageSrc}}" mode="aspectFill" lazy-load binderror="onNearbySpotImageError" data-index="{{index}}" />
+              <view wx:else class="nearby-spot-placeholder">{{item.name.slice(0, 1)}}</view>
+              <view class="nearby-spot-shade"></view>
+              <view class="nearby-spot-meta">
+                <text class="nearby-spot-name">{{item.name}}</text>
+                <text class="nearby-spot-detail">{{item.meta}}</text>
+              </view>
+            </view>
+          </view>
+        </scroll-view>
+
+        <view wx:if="{{nearbyFoods.length}}" class="nearby-food-block">
+          <text class="nearby-subtitle">当地必吃</text>
+          <view class="nearby-food-grid">
+            <view wx:for="{{nearbyFoods}}" wx:key="id" class="nearby-food-item" bindtap="openNearbyCity">
+              <view class="nearby-food-icon">食</view>
+              <view class="nearby-food-copy">
+                <text class="nearby-food-name">{{item.name}}</text>
+                <text class="nearby-food-meta">{{item.category}} · {{item.priceLabel}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <button class="nearby-ai-button" bindtap="startNearbyAi">✨ 让 AI 安排{{currentCity}}半日游</button>
+      </view>
+
+      <view wx:else class="nearby-empty card">
+        <view class="nearby-empty-mark">AI</view>
+        <view class="nearby-empty-body">
+          <text class="nearby-empty-title">发现{{currentCity}}的本地玩法</text>
+          <text class="nearby-empty-copy">结构化城市资料正在补充，可让 AI 结合旅游知识库推荐景点、美食与半日路线。</text>
+        </view>
+        <button class="nearby-empty-button" bindtap="startNearbyAi">生成推荐</button>
+      </view>
+    </view>
+
     <view class="section-head">
       <view>
         <text class="section-eyebrow">INSPIRATION</text>

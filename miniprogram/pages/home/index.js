@@ -1,4 +1,5 @@
 const api = require('../../utils/api')
+const config = require('../../utils/config')
 const { requireAuth, getSavedUser } = require('../../utils/session')
 const { greeting } = require('../../utils/format')
 const { heroImage, resolveCityImage } = require('../../utils/travel-assets')
@@ -10,6 +11,12 @@ Page({
     heroImage,
     prompt: '',
     locating: false,
+    currentCity: '',
+    nearbyLoading: false,
+    nearbyHasCatalog: false,
+    nearbyCatalogCity: null,
+    nearbySpots: [],
+    nearbyFoods: [],
     cities: [],
     templates: [],
     loading: true,
@@ -25,7 +32,12 @@ Page({
     if (!requireAuth()) return
     const user = getSavedUser() || {}
     const displayName = user.nickname || user.username || '旅行者'
-    this.setData({ user: { ...user, displayName, initial: displayName.slice(0, 1) }, greeting: greeting() })
+    const cachedCity = wx.getStorageSync('oneclick_trip_current_city') || ''
+    this.setData({
+      user: { ...user, displayName, initial: displayName.slice(0, 1) },
+      greeting: greeting(),
+      currentCity: this.data.currentCity || cachedCity
+    })
     // Refresh the catalog on every visit so hot reload and backend data changes
     // cannot leave stale web-only asset paths in the page state.
     this.loadData()
@@ -55,6 +67,7 @@ Page({
           budgetLabel: item.budgetLevel === 'HIGH' ? '高预算' : item.budgetLevel === 'LOW' ? '省着玩' : '预算适中'
         }))
       })
+      if (this.data.currentCity) await this.loadNearbyRecommendations(this.data.currentCity)
     } catch (error) {
       this.setData({ error: error.message || '内容加载失败' })
     } finally {
@@ -101,7 +114,12 @@ Page({
       success: async position => {
         try {
           const location = await api.reverseLocation(position.latitude, position.longitude)
-          this.setData({ prompt: prependOrigin(this.data.prompt, location.city) })
+          this.setData({
+            currentCity: location.city,
+            prompt: prependOrigin(this.data.prompt, location.city)
+          })
+          wx.setStorageSync('oneclick_trip_current_city', location.city)
+          await this.loadNearbyRecommendations(location.city)
           wx.showToast({ title: `已定位到${location.city}`, icon: 'success' })
         } catch (error) {
           wx.showToast({ title: error.message || '城市识别失败，请手动填写', icon: 'none' })
@@ -134,6 +152,93 @@ Page({
         wx.showToast({ title: '定位失败，请手动填写出发城市', icon: 'none' })
       }
     })
+  },
+
+  async loadNearbyRecommendations(cityName) {
+    const currentCity = normalizeCityName(cityName)
+    if (!currentCity) return
+    if (!this.data.cities.length) {
+      this.setData({ currentCity, nearbyLoading: true })
+      return
+    }
+
+    const catalogCity = this.data.cities.find(city => normalizeCityName(city.name) === currentCity)
+    if (!catalogCity) {
+      this.setData({
+        currentCity,
+        nearbyLoading: false,
+        nearbyHasCatalog: false,
+        nearbyCatalogCity: null,
+        nearbySpots: [],
+        nearbyFoods: []
+      })
+      return
+    }
+
+    this.setData({ currentCity, nearbyLoading: true })
+    try {
+      const [spots, foods] = await Promise.all([
+        api.spots(catalogCity.id),
+        api.foods(catalogCity.id)
+      ])
+      const nearbySpots = (spots || []).slice(0, 4).map(spot => ({
+        ...spot,
+        imageSrc: imageSrc(spot.imageUrl),
+        meta: [spot.rating ? `${spot.rating} 分` : '', Number(spot.ticketPrice) ? `¥${spot.ticketPrice}` : '免费']
+          .filter(Boolean)
+          .join(' · ')
+      }))
+      const nearbyFoods = (foods || []).slice(0, 4).map(food => ({
+        ...food,
+        category: food.category || '本地特色',
+        priceLabel: food.avgPrice ? `人均 ¥${food.avgPrice}` : '当地特色'
+      }))
+      this.setData({
+        nearbyLoading: false,
+        nearbyHasCatalog: nearbySpots.length > 0 || nearbyFoods.length > 0,
+        nearbyCatalogCity: catalogCity,
+        nearbySpots,
+        nearbyFoods
+      })
+    } catch (error) {
+      this.setData({
+        nearbyLoading: false,
+        nearbyHasCatalog: false,
+        nearbyCatalogCity: catalogCity,
+        nearbySpots: [],
+        nearbyFoods: []
+      })
+    }
+  },
+
+  openNearbyCity() {
+    const city = this.data.nearbyCatalogCity
+    if (!city) {
+      this.startNearbyAi()
+      return
+    }
+    wx.setStorageSync('oneclick_trip_preview_item', {
+      type: 'city',
+      id: city.id,
+      name: city.name,
+      imageUrl: city.imageUrl || resolveCityImage(city.name, city.id),
+      summary: city.summary || '',
+      bestSeason: city.bestSeason || '',
+      province: city.province || ''
+    })
+    wx.navigateTo({ url: '/pages/preview/index' })
+  },
+
+  startNearbyAi() {
+    const city = this.data.currentCity
+    if (!city) return
+    this.startAi(`我现在在${city}，请结合旅游知识库推荐适合当前城市的吃喝玩乐。分别给出值得去的景点、当地特色美食和一条轻松的半日游路线，并说明推荐理由。`)
+  },
+
+  onNearbySpotImageError(event) {
+    const index = event.currentTarget.dataset.index
+    if (index == null) return
+    this.setData({ [`nearbySpots[${index}].imageSrc`]: '' })
   },
 
   startCity(event) {
@@ -183,6 +288,17 @@ Page({
 function prependOrigin(message, city) {
   const content = String(message || '').replace(/^从[^，。,]{1,20}出发[，,]\s*/, '').trim()
   return `从${city}出发，${content}`
+}
+
+function normalizeCityName(value) {
+  return String(value || '').trim().replace(/市$/, '')
+}
+
+function imageSrc(imageUrl) {
+  const value = String(imageUrl || '').trim()
+  if (!value) return ''
+  if (/^https?:\/\//i.test(value)) return value
+  return `${config.BASE_URL}/${value.replace(/^\//, '')}`
 }
 
 function isLocationPermissionDenied(error) {
