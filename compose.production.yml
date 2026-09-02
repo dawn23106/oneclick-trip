@@ -71,6 +71,7 @@ services:
       context: ./backend
     restart: unless-stopped
     environment:
+      TZ: Asia/Shanghai
       MYSQL_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-oneclick_trip}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
       MYSQL_USERNAME: ${MYSQL_USERNAME:-oneclick_trip}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
@@ -82,7 +83,7 @@ services:
       AI_SERVICE_BASE_URL: http://ai:8000
       AI_SERVICE_CONNECT_TIMEOUT: 5s
       AI_SERVICE_READ_TIMEOUT: 180s
-      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=25 -XX:+UseG1GC
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=25 -XX:+UseG1GC
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
