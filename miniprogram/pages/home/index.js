@@ -29,6 +29,7 @@ Page({
     // Refresh the catalog on every visit so hot reload and backend data changes
     // cannot leave stale web-only asset paths in the page state.
     this.loadData()
+    this.tryAutoLocation()
   },
 
   async onPullDownRefresh() {
@@ -73,7 +74,25 @@ Page({
     this.startAi(this.data.prompt)
   },
 
+  tryAutoLocation() {
+    // tab 页会反复触发 onShow；每个页面实例只自动尝试一次，避免频繁定位。
+    if (this.autoLocationAttempted) return
+    this.autoLocationAttempted = true
+    wx.getSetting({
+      success: result => {
+        const locationPermission = result.authSetting['scope.userLocation']
+        // 未选择过时会由 getLocation 拉起首次授权；已授权时直接自动定位。
+        // 明确拒绝过则保持安静，用户仍可通过页面按钮主动重新开启。
+        if (locationPermission !== false) this.locateCurrentCity(false)
+      }
+    })
+  },
+
   useCurrentLocation() {
+    this.locateCurrentCity(true)
+  },
+
+  locateCurrentCity(interactive) {
     if (this.data.locating) return
     this.setData({ locating: true })
     wx.getLocation({
@@ -92,13 +111,22 @@ Page({
       },
       fail: error => {
         this.setData({ locating: false })
-        if (String(error.errMsg || '').includes('auth deny')) {
+        if (isLocationPermissionDenied(error)) {
+          if (!interactive) {
+            wx.showToast({ title: '未开启定位，可点击“使用当前位置”重新授权', icon: 'none' })
+            return
+          }
           wx.showModal({
             title: '需要定位权限',
             content: '定位仅用于识别出发城市；也可以直接在输入框中手动填写。',
             confirmText: '去设置',
             success: result => {
-              if (result.confirm) wx.openSetting()
+              if (!result.confirm) return
+              wx.openSetting({
+                success: setting => {
+                  if (setting.authSetting['scope.userLocation']) this.locateCurrentCity(false)
+                }
+              })
             }
           })
           return
@@ -155,4 +183,12 @@ Page({
 function prependOrigin(message, city) {
   const content = String(message || '').replace(/^从[^，。,]{1,20}出发[，,]\s*/, '').trim()
   return `从${city}出发，${content}`
+}
+
+function isLocationPermissionDenied(error) {
+  const message = String(error && error.errMsg ? error.errMsg : '').toLowerCase()
+  return message.includes('auth deny')
+    || message.includes('auth denied')
+    || message.includes('permission denied')
+    || message.includes('authorize no response')
 }
