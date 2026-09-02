@@ -73,7 +73,10 @@ flowchart TD
 - Maven 3.9+
 - Node.js 20+
 - Python 3.11–3.14（推荐 3.12）
-- MySQL 8、Redis 7；知识库功能需要 Chroma
+- MySQL 8、Redis 7；知识库功能需要 Chroma。生产环境中 Chroma 仅加入 AI
+  服务可访问的内部 Docker 网络，不向宿主机或公网暴露端口；当前上游
+  `1.5.9` 无安全修复版本，处置记录见
+  `docs/security/chromadb-1.5.9-advisories.md`。
 
 先复制根目录和组件中的 `.env.example`，只在本地填写密钥。不要提交 `.env`、真实密码或 API Key。
 

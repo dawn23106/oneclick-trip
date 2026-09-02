@@ -61,7 +61,10 @@ services:
       - chroma_data:/data
     mem_limit: 768m
     logging: *default-logging
-    networks: [app]
+    # Chroma 1.5.9 is affected by upstream advisories with no patched release.
+    # Keep it on a dedicated internal network so only the AI service can reach
+    # its HTTP API; never publish the Chroma port on the host.
+    networks: [vector_internal]
 
   backend:
     build:
@@ -122,11 +125,14 @@ services:
         condition: service_started
     mem_limit: 1280m
     logging: *default-logging
-    networks: [app]
+    networks: [app, vector_internal]
 
 networks:
   app:
     driver: bridge
+  vector_internal:
+    driver: bridge
+    internal: true
 
 volumes:
   mysql_data:
