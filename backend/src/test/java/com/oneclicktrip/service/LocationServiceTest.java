@@ -4,6 +4,7 @@ import com.oneclicktrip.common.BusinessException;
 import com.oneclicktrip.dto.CurrentLocationResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -12,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 
 class LocationServiceTest {
     @Test
@@ -33,7 +35,7 @@ class LocationServiceTest {
                         }
                         """, MediaType.APPLICATION_JSON));
 
-        LocationService service = new LocationService(builder.build());
+        LocationService service = new LocationService(builder.build(), new OfflineCityResolver());
         CurrentLocationResponse result = service.reverseGeocode(32.0603, 118.7969);
 
         assertThat(result.city()).isEqualTo("南京");
@@ -56,7 +58,7 @@ class LocationServiceTest {
                         }
                         """, MediaType.APPLICATION_JSON));
 
-        CurrentLocationResponse result = new LocationService(builder.build())
+        CurrentLocationResponse result = new LocationService(builder.build(), new OfflineCityResolver())
                 .reverseGeocode(39.9042, 116.4074);
 
         assertThat(result.city()).isEqualTo("北京");
@@ -76,7 +78,7 @@ class LocationServiceTest {
                         }
                         """, MediaType.APPLICATION_JSON));
 
-        CurrentLocationResponse result = new LocationService(builder.build())
+        CurrentLocationResponse result = new LocationService(builder.build(), new OfflineCityResolver())
                 .reverseGeocode(32.0603, 118.7969);
 
         assertThat(result.city()).isEqualTo("南京");
@@ -86,10 +88,27 @@ class LocationServiceTest {
 
     @Test
     void reverseGeocodeRejectsInvalidCoordinatesBeforeCallingProvider() {
-        LocationService service = new LocationService(RestClient.create());
+        LocationService service = new LocationService(RestClient.create(), new OfflineCityResolver());
 
         assertThatThrownBy(() -> service.reverseGeocode(91, 118.8))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("定位坐标不合法");
+    }
+
+    @Test
+    void reverseGeocodeFallsBackToOfflineCityWhenProviderIsUnavailable() {
+        RestClient.Builder builder = RestClient.builder()
+                .baseUrl("https://nominatim.example.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(startsWith("https://nominatim.example.test/reverse")))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+
+        CurrentLocationResponse result = new LocationService(builder.build(), new OfflineCityResolver())
+                .reverseGeocode(32.0603, 118.7969);
+
+        assertThat(result.city()).isEqualTo("南京");
+        assertThat(result.source()).isEqualTo("geonames-offline-nearest-city");
+        assertThat(result.displayName()).contains("离线城市中心匹配");
+        server.verify();
     }
 }

@@ -10,6 +10,8 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 
 @Service
 public class LocationService {
@@ -18,9 +20,14 @@ public class LocationService {
     );
 
     private final RestClient nominatimRestClient;
+    private final OfflineCityResolver offlineCityResolver;
 
-    public LocationService(@Qualifier("nominatimRestClient") RestClient nominatimRestClient) {
+    public LocationService(
+            @Qualifier("nominatimRestClient") RestClient nominatimRestClient,
+            OfflineCityResolver offlineCityResolver
+    ) {
         this.nominatimRestClient = nominatimRestClient;
+        this.offlineCityResolver = offlineCityResolver;
     }
 
     /**
@@ -43,7 +50,9 @@ public class LocationService {
                     .retrieve()
                     .body(JsonNode.class);
         } catch (RestClientException exception) {
-            throw new LocationServiceException("定位服务暂时不可用，请手动填写出发城市", exception);
+            return offlineFallback(latitude, longitude)
+                    .orElseThrow(() -> new LocationServiceException(
+                            "定位服务暂时不可用，请手动填写出发城市", exception));
         }
 
         JsonNode address = payload == null ? null : payload.path("address");
@@ -52,7 +61,8 @@ public class LocationService {
         String rawCity = firstText(address, CITY_FIELDS);
         String city = resolveCity(rawCity, province, displayName);
         if (city.isBlank()) {
-            throw new BusinessException("暂时无法识别当前位置所属城市，请手动填写出发地");
+            return offlineFallback(latitude, longitude)
+                    .orElseThrow(() -> new BusinessException("暂时无法识别当前位置所属城市，请手动填写出发地"));
         }
 
         String district = isDistrict(rawCity)
@@ -68,6 +78,20 @@ public class LocationService {
                 longitude,
                 "nominatim-reverse"
         );
+    }
+
+    private Optional<CurrentLocationResponse> offlineFallback(double latitude, double longitude) {
+        return offlineCityResolver.findNearest(latitude, longitude)
+                .map(city -> new CurrentLocationResponse(
+                        normalizeCity(city.name()),
+                        "",
+                        "",
+                        String.format(Locale.ROOT, "%s（离线城市中心匹配，约 %.0f km）",
+                                city.name(), city.distanceKm()),
+                        latitude,
+                        longitude,
+                        "geonames-offline-nearest-city"
+                ));
     }
 
     private static void validateCoordinates(double latitude, double longitude) {
