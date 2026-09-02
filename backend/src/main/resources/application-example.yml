@@ -32,6 +32,10 @@ mybatis-plus:
 app:
   cors:
     allowed-origin-patterns: ${APP_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:5173,http://localhost:5174}
+  map:
+    nominatim-base-url: ${NOMINATIM_BASE_URL:https://nominatim.openstreetmap.org}
+    user-agent: ${NOMINATIM_USER_AGENT:oneclick-trip/0.8 (educational travel planner)}
+    timeout: ${MAP_HTTP_TIMEOUT:8s}
   internal-service:
     secret: ${AI_INTERNAL_SERVICE_SECRET:oneclick-trip-internal-dev-secret}
   jwt:

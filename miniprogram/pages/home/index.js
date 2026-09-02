@@ -9,6 +9,7 @@ Page({
     greeting: '',
     heroImage,
     prompt: '',
+    locating: false,
     cities: [],
     templates: [],
     loading: true,
@@ -72,6 +73,41 @@ Page({
     this.startAi(this.data.prompt)
   },
 
+  useCurrentLocation() {
+    if (this.data.locating) return
+    this.setData({ locating: true })
+    wx.getLocation({
+      type: 'wgs84',
+      isHighAccuracy: false,
+      success: async position => {
+        try {
+          const location = await api.reverseLocation(position.latitude, position.longitude)
+          this.setData({ prompt: prependOrigin(this.data.prompt, location.city) })
+          wx.showToast({ title: `已定位到${location.city}`, icon: 'success' })
+        } catch (error) {
+          wx.showToast({ title: error.message || '城市识别失败，请手动填写', icon: 'none' })
+        } finally {
+          this.setData({ locating: false })
+        }
+      },
+      fail: error => {
+        this.setData({ locating: false })
+        if (String(error.errMsg || '').includes('auth deny')) {
+          wx.showModal({
+            title: '需要定位权限',
+            content: '定位仅用于识别出发城市；也可以直接在输入框中手动填写。',
+            confirmText: '去设置',
+            success: result => {
+              if (result.confirm) wx.openSetting()
+            }
+          })
+          return
+        }
+        wx.showToast({ title: '定位失败，请手动填写出发城市', icon: 'none' })
+      }
+    })
+  },
+
   startCity(event) {
     const city = this.data.cities[event.currentTarget.dataset.index]
     if (!city) return
@@ -115,3 +151,8 @@ Page({
     wx.switchTab({ url: '/pages/trips/index' })
   }
 })
+
+function prependOrigin(message, city) {
+  const content = String(message || '').replace(/^从[^，。,]{1,20}出发[，,]\s*/, '').trim()
+  return `从${city}出发，${content}`
+}

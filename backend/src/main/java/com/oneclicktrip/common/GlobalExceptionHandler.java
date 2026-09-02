@@ -25,6 +25,12 @@ public class GlobalExceptionHandler {
         return ApiResponse.fail(ex.getMessage());
     }
 
+    @ExceptionHandler(LocationServiceException.class)
+    @ResponseStatus(HttpStatus.BAD_GATEWAY)
+    public ApiResponse<Void> handleLocationService(LocationServiceException ex) {
+        return ApiResponse.fail(ex.getMessage());
+    }
+
     /**
      * 参数校验异常：DTO 上的 @NotBlank、@Size 等校验失败时会走这里。
      */

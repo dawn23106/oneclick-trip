@@ -524,6 +524,17 @@ a {
 .composer-location {
   color: var(--primary-dark);
   background: var(--primary-soft);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.composer-location:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.composer-location:disabled,
+.composer-location.is-locating {
+  cursor: wait;
+  opacity: 0.68;
 }
 
 .composer-send {

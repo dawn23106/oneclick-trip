@@ -17,6 +17,7 @@
 .prompt-box textarea { width: 100%; min-height: 116rpx; max-height: 220rpx; color: #293a31; font-size: 28rpx; line-height: 1.65; }
 .prompt-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 13rpx; }
 .location-hint { display: flex; align-items: center; color: #849087; font-size: 22rpx; }
+.location-hint.locating { opacity: .62; }
 .location-dot { width: 11rpx; height: 11rpx; margin-right: 11rpx; border-radius: 50%; background: #df7655; box-shadow: 0 0 0 6rpx #fae9e3; }
 .send-button { width: 104rpx; height: 64rpx; margin: 0; border-radius: 32rpx; background: #23684d; color: #fff; font-size: 25rpx; font-weight: 700; line-height: 64rpx; }
 .suggestion-scroll { width: 100%; margin-top: 22rpx; white-space: nowrap; }

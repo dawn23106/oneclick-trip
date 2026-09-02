@@ -114,6 +114,13 @@ export const api = {
   hotels(cityId) {
     return apiRequest(`/api/cities/${cityId}/hotels`)
   },
+  reverseLocation(latitude, longitude) {
+    const query = new URLSearchParams({
+      latitude: String(latitude),
+      longitude: String(longitude)
+    })
+    return apiRequest(`/api/location/reverse?${query}`)
+  },
   templates(cityId) {
     const query = cityId ? `?cityId=${cityId}` : ''
     return apiRequest(`/api/trip-templates${query}`)

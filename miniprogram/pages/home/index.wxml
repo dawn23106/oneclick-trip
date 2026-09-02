@@ -19,7 +19,9 @@
     <view class="prompt-box">
       <textarea value="{{prompt}}" bindinput="onPrompt" bindconfirm="submitPrompt" confirm-type="send" placeholder="例如：国庆去成都 4 天，两个人，喜欢美食和慢节奏……" maxlength="300" auto-height />
       <view class="prompt-actions">
-        <view class="location-hint"><text class="location-dot"></text>从你的想法开始</view>
+        <view class="location-hint {{locating ? 'locating' : ''}}" bindtap="useCurrentLocation">
+          <text class="location-dot"></text>{{locating ? '正在识别城市…' : '使用当前位置'}}
+        </view>
         <button class="send-button" bindtap="submitPrompt" aria-label="发送旅行需求">出发</button>
       </view>
     </view>

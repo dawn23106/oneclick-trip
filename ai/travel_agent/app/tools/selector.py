@@ -15,7 +15,7 @@ INTENT_TOOL_ALLOWLIST: dict[Intent, frozenset[ToolName]] = {
 PHASE1_TOOL_ALLOWLIST: frozenset[ToolName] = frozenset(
     {ToolName.WEATHER, ToolName.POI_COORDINATES}
 )
-PHASE2_TOOL_ALLOWLIST: frozenset[ToolName] = frozenset()
+PHASE2_TOOL_ALLOWLIST: frozenset[ToolName] = frozenset({ToolName.ROUTE_MATRIX})
 MODIFY_DISCOVERY_ALLOWLIST: frozenset[ToolName] = frozenset()
 MODIFY_DEPENDENT_ALLOWLIST: frozenset[ToolName] = frozenset()
 
@@ -68,8 +68,13 @@ class ToolSelector:
         self,
         requested_tools: list[str] | None = None,
     ) -> list[ToolName]:
-        del requested_tools
-        return []
+        defaults = sorted(PHASE2_TOOL_ALLOWLIST, key=str)
+        selected = (
+            self._filter(requested_tools, PHASE2_TOOL_ALLOWLIST)
+            if requested_tools
+            else defaults
+        )
+        return self._available(selected)
 
     def for_modify_discovery(
         self,

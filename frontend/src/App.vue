@@ -91,8 +91,19 @@
               <p>一句话说出时间、预算和偏好。</p>
             </div>
             <form class="hero-composer" @submit.prevent="startFromPrompt">
-              <button type="button" class="composer-location" aria-label="使用当前位置" @click="promptText = '从南京出发，' + promptText">
-                <el-icon><Location /></el-icon>
+              <button
+                type="button"
+                class="composer-location"
+                :class="{ 'is-locating': locationLoading }"
+                :disabled="locationLoading"
+                :aria-label="locationLoading ? '正在定位' : '使用当前位置'"
+                :title="locationLoading ? '正在识别当前位置…' : '使用当前位置作为出发地'"
+                @click="useCurrentLocation"
+              >
+                <el-icon :class="{ 'is-loading': locationLoading }">
+                  <Loading v-if="locationLoading" />
+                  <Location v-else />
+                </el-icon>
               </button>
               <textarea
                 v-model.trim="promptText"
@@ -995,6 +1006,7 @@ const loginError = ref('')
 const profileLoading = ref(false)
 const profileError = ref('')
 const promptText = ref('')
+const locationLoading = ref(false)
 const chatTurns = ref([])
 const conversationList = ref([])
 const conversationLoading = ref(false)
@@ -1700,6 +1712,51 @@ async function startFromPrompt() {
   const message = promptText.value || '帮我规划一次轻松的成都旅行'
   promptText.value = ''
   await createNewConversation(message)
+}
+
+async function useCurrentLocation() {
+  if (locationLoading.value) return
+  if (!navigator.geolocation) {
+    showToast('当前浏览器不支持定位，请手动填写出发城市')
+    return
+  }
+
+  locationLoading.value = true
+  try {
+    const position = await getBrowserPosition()
+    const location = await api.reverseLocation(
+      position.coords.latitude,
+      position.coords.longitude
+    )
+    promptText.value = prependOrigin(promptText.value, location.city)
+    showToast(`已定位到${location.city}，仅将城市作为出发地`)
+  } catch (error) {
+    showToast(locationErrorMessage(error))
+  } finally {
+    locationLoading.value = false
+  }
+}
+
+function getBrowserPosition() {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: false,
+      timeout: 10000,
+      maximumAge: 5 * 60 * 1000
+    })
+  })
+}
+
+function prependOrigin(message, city) {
+  const content = String(message || '').replace(/^从[^，。,]{1,20}出发[，,]\s*/, '').trim()
+  return `从${city}出发，${content}`
+}
+
+function locationErrorMessage(error) {
+  if (error?.code === 1) return '未获得定位权限，请允许定位或手动填写出发城市'
+  if (error?.code === 2) return '暂时无法获取当前位置，请手动填写出发城市'
+  if (error?.code === 3) return '定位超时，请重试或手动填写出发城市'
+  return error?.message || '定位失败，请手动填写出发城市'
 }
 
 function useSuggestion(message) {

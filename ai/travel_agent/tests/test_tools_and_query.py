@@ -20,6 +20,15 @@ def test_tool_selector_filters_unknown_and_disallowed_tools() -> None:
     assert selected == [ToolName.WEATHER]
 
 
+def test_planning_phase2_selector_allows_only_route_matrix() -> None:
+    selector = ToolSelector()
+
+    assert selector.for_planning_phase2() == [ToolName.ROUTE_MATRIX]
+    assert selector.for_planning_phase2(
+        ["weather", "route_matrix", "unknown_tool"]
+    ) == [ToolName.ROUTE_MATRIX]
+
+
 def test_weather_query_executes_only_weather_tool() -> None:
     result = build_travel_graph().invoke(
         {

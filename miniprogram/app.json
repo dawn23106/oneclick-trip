@@ -31,5 +31,11 @@
   "networkTimeout": {
     "request": 60000
   },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于识别您的出发城市，规划结果不会保存精确位置"
+    }
+  },
+  "requiredPrivateInfos": ["getLocation"],
   "sitemapLocation": "sitemap.json"
 }

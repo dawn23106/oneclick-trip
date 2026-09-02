@@ -10,6 +10,9 @@ module.exports = {
   spots: id => request(`/api/cities/${id}/spots`),
   foods: id => request(`/api/cities/${id}/foods`),
   hotels: id => request(`/api/cities/${id}/hotels`),
+  reverseLocation: (latitude, longitude) => request(
+    `/api/location/reverse?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}`
+  ),
   templates: cityId => request(`/api/trip-templates${cityId ? `?cityId=${cityId}` : ''}`),
   tripPlans: () => request('/api/trip-plans'),
   tripPlan: id => request(`/api/trip-plans/${id}`),
