@@ -346,13 +346,23 @@ class RuleBasedIntentAgent:
                 weeks = int(raw_weeks) if raw_weeks.isdigit() else self.CHINESE_NUMBERS[raw_weeks]
                 values["days"] = weeks * 7
 
+        family_match = re.search(
+            r"(\d{1,2}|[一二两三四五六七八九十])\s*(?:个)?(?:大人|成人|成年人|大)"
+            r"\s*(?:[、,，和加+与]\s*)?"
+            r"(\d{1,2}|[一二两三四五六七八九十])\s*(?:个)?(?:小孩|孩子|儿童|小)",
+            text,
+        )
         people_match = re.search(
             r"(\d{1,3}|[一二两三四五六七八九十])\s*(?:个|名)?(?:成年)?人",
             text,
         )
-        if people_match:
+        if family_match:
+            adults = self._count_number(family_match.group(1))
+            children = self._count_number(family_match.group(2))
+            values["people"] = adults + children
+        elif people_match:
             raw_people = people_match.group(1)
-            values["people"] = int(raw_people) if raw_people.isdigit() else self.CHINESE_NUMBERS[raw_people]
+            values["people"] = self._count_number(raw_people)
         elif re.search(r"独自(?:出行|旅行|游玩)|一个人(?:出行|旅行|游玩)", text):
             values["people"] = 1
 
@@ -411,6 +421,9 @@ class RuleBasedIntentAgent:
         if option_ids:
             values["selected_option_ids"] = option_ids
         return TravelEntities(**values)
+
+    def _count_number(self, raw: str) -> int:
+        return int(raw) if raw.isdigit() else self.CHINESE_NUMBERS[raw]
 
     @staticmethod
     def _extract_dates(text: str) -> list[date]:

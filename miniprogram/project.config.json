@@ -1,8 +1,8 @@
 {
-  "description": "一键游微信小程序",
+  "description": "旅行计划簿微信小程序",
   "compileType": "miniprogram",
   "libVersion": "3.7.12",
-  "appid": "touristappid",
+  "appid": "wxce78da505289fe4e",
   "projectname": "oneclick-trip",
   "miniprogramRoot": "./",
   "setting": {
@@ -10,7 +10,7 @@
     "enhance": true,
     "postcss": true,
     "minified": true,
-    "urlCheck": false,
+    "urlCheck": true,
     "coverView": true,
     "showShadowRootInWxmlPanel": true,
     "packNpmManually": false,

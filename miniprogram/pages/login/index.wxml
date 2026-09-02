@@ -1,13 +1,13 @@
 <view class="login-page">
   <view class="brand-row">
     <view class="brand-mark"><view class="compass-needle"></view></view>
-    <text class="brand-name">一键游</text>
+    <text class="brand-name">旅行计划簿</text>
   </view>
 
   <view class="hero-copy">
     <text class="eyebrow">AI TRAVEL COMPANION</text>
     <view class="hero-title">把旅行想法，<text>变成可出发的行程</text></view>
-    <text class="hero-desc">告诉我目的地、时间和偏好，剩下的路线、预算与安排交给一键游。</text>
+    <text class="hero-desc">告诉我目的地、时间和偏好，剩下的路线、预算与安排交给旅行计划簿。</text>
   </view>
 
   <view class="login-card">
@@ -30,11 +30,12 @@
     </view>
 
     <view wx:if="{{error}}" class="error-text">{{error}}</view>
+    <view class="agreement-row">
+      <view class="agreement-check {{agreed ? 'checked' : ''}}" bindtap="toggleAgreement">{{agreed ? '✓' : ''}}</view>
+      <view class="agreement-copy">我已阅读并同意<text class="legal-link" data-page="agreement" catchtap="openLegal">《服务条款》</text>和<text class="legal-link" data-page="privacy" catchtap="openLegal">《隐私政策》</text></view>
+    </view>
     <button class="primary-button login-button" loading="{{loading}}" disabled="{{loading}}" bindtap="submit">
-      {{mode === 'login' ? '进入一键游' : '创建账号'}}
+      {{mode === 'login' ? '进入旅行计划簿' : '创建账号'}}
     </button>
-    <button wx:if="{{mode === 'login'}}" class="demo-button" bindtap="fillDemo">使用演示账号</button>
   </view>
-
-  <text class="login-note">登录即表示你同意服务条款与隐私政策</text>
 </view>

@@ -26,6 +26,22 @@ def test_keeps_named_adult_count_during_llm_sanitization() -> None:
     assert sanitized["people"] == 1
 
 
+def test_extracts_two_adults_and_three_children_as_five_people() -> None:
+    decision = RuleBasedIntentAgent().classify("从昆明出发，香港旅游十天，两大三小")
+
+    assert decision.entities.people == 5
+
+
+def test_keeps_family_composition_during_llm_sanitization() -> None:
+    sanitized = _sanitize_explicit_update(
+        {},
+        "这次还是两大三小",
+        {"people": 5},
+    )
+
+    assert sanitized["people"] == 5
+
+
 def test_date_range_does_not_become_eleven_day_trip() -> None:
     decision = RuleBasedIntentAgent().classify(
         "1名成年人，2026年9月10日至11日游成都，共2天，预算1500元"

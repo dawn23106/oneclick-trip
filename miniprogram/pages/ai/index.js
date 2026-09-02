@@ -171,7 +171,17 @@ Page({
   async consumePendingPrompt() {
     const pending = wx.getStorageSync('oneclick_trip_pending_prompt')
     if (!pending || this.data.sending) return
+    const targetConversationId = wx.getStorageSync('oneclick_trip_pending_conversation_id')
     wx.removeStorageSync('oneclick_trip_pending_prompt')
+    wx.removeStorageSync('oneclick_trip_pending_conversation_id')
+    if (targetConversationId && targetConversationId !== this.data.conversationId) {
+      try {
+        await this.loadConversation(targetConversationId)
+      } catch (error) {
+        wx.showToast({ title: error.message || '原行程会话恢复失败', icon: 'none' })
+        return
+      }
+    }
     await this.sendText(pending)
   },
 
@@ -387,40 +397,44 @@ Page({
     const id = event.currentTarget.dataset.id
     this.setData({ sessionsLoading: true })
     try {
-      const [detail, plans] = await Promise.all([
-        api.conversation(id),
-        api.tripPlans().catch(() => [])
-      ])
-      const messages = (detail.messages || []).map(message => {
-        const role = message.role === 'USER' ? 'user' : 'assistant'
-        const extra = { error: message.status === 'FAILED' ? message.content : '' }
-        if (role === 'assistant') {
-          const state = message.agentState || {}
-          const saved = findSavedPlan(plans, state, id)
-          Object.assign(extra, choiceFromState(state), {
-            savedPlan: Boolean(state.plan_saved),
-            planCard: planCardFromState(state),
-            planRecordId: saved ? saved.recordId : ''
-          })
-        }
-        return this.createMessage(role, message.content || '', extra)
-      })
-      messages.forEach((message, index) => {
-        if (message.role !== 'assistant' || !message.actions.length) return
-        const next = messages[index + 1]
-        const selected = next && next.role === 'user'
-          ? message.actions.find(action => action.message === next.text)
-          : null
-        if (selected) message.actionSelected = selected.id
-      })
-      setConversationId(id)
-      this.setData({ conversationId: id, messages, showSessions: false })
-      this.scrollToBottom()
+      await this.loadConversation(id)
     } catch (error) {
       wx.showToast({ title: error.message || '打开会话失败', icon: 'none' })
     } finally {
       this.setData({ sessionsLoading: false })
     }
+  },
+
+  async loadConversation(id) {
+    const [detail, plans] = await Promise.all([
+      api.conversation(id),
+      api.tripPlans().catch(() => [])
+    ])
+    const messages = (detail.messages || []).map(message => {
+      const role = message.role === 'USER' ? 'user' : 'assistant'
+      const extra = { error: message.status === 'FAILED' ? message.content : '' }
+      if (role === 'assistant') {
+        const state = message.agentState || {}
+        const saved = findSavedPlan(plans, state, id)
+        Object.assign(extra, choiceFromState(state), {
+          savedPlan: Boolean(state.plan_saved),
+          planCard: planCardFromState(state),
+          planRecordId: saved ? saved.recordId : ''
+        })
+      }
+      return this.createMessage(role, message.content || '', extra)
+    })
+    messages.forEach((message, index) => {
+      if (message.role !== 'assistant' || !message.actions.length) return
+      const next = messages[index + 1]
+      const selected = next && next.role === 'user'
+        ? message.actions.find(action => action.message === next.text)
+        : null
+      if (selected) message.actionSelected = selected.id
+    })
+    setConversationId(id)
+    this.setData({ conversationId: id, messages, showSessions: false })
+    this.scrollToBottom()
   },
 
   deleteConversation(event) {

@@ -57,6 +57,19 @@ PENDING_PLAN_ADJUSTMENT_MARKERS = (
     "换成",
     "人数改",
     "保持预算",
+    "继续规划",
+    "继续生成",
+    "接着规划",
+    "接着生成",
+    "重新尝试",
+    "再试一次",
+)
+
+EXISTING_PLAN_OPTIMIZATION_MARKERS = (
+    "优化",
+    "完善行程",
+    "改进行程",
+    "继续调整",
 )
 
 QUERY_INTENTS = {
@@ -113,7 +126,7 @@ def make_intent_recognition_node(
 
     def patch_from(state: TravelState, decision, query: str) -> TravelStatePatch:
         """校正意图结果并生成本轮状态补丁，清理上一轮临时执行数据。"""
-        decision = _repair_intent_decision(query, decision)
+        decision = _repair_intent_decision(state, query, decision)
         previous = state.get("entities") or TravelEntities()
         explicit_update = _sanitize_explicit_update(
             state,
@@ -189,9 +202,21 @@ def make_intent_recognition_node(
     return RunnableLambda(recognize_intent, afunc=arecognize_intent, name="recognize_intent")
 
 
-def _repair_intent_decision(query: str, decision):
+def _repair_intent_decision(state: TravelState, query: str, decision):
     """Reject structurally valid but unusable LLM routing decisions."""
-    return enforce_code_owned_intent(query, decision)
+    repaired = enforce_code_owned_intent(query, decision)
+    if (
+        state.get("current_plan") is not None
+        and any(marker in query for marker in EXISTING_PLAN_OPTIMIZATION_MARKERS)
+        and not any(marker in query for marker in FRESH_TRIP_MARKERS)
+    ):
+        return repaired.model_copy(
+            update={
+                "intent": Intent.MODIFY_PLAN,
+                "tasks": [],
+            }
+        )
+    return repaired
 
 
 def _normalize_intent_tasks(
@@ -320,6 +345,12 @@ def _should_inherit_entities(
         return True
     if intent is Intent.TRIP_PLAN and any(marker in query for marker in FRESH_TRIP_MARKERS):
         return False
+    if (
+        intent is Intent.TRIP_PLAN
+        and state.get("intent") is Intent.TRIP_PLAN
+        and any(marker in query for marker in PENDING_PLAN_ADJUSTMENT_MARKERS)
+    ):
+        return True
     feasibility = state.get("budget_feasibility")
     if (
         intent is Intent.TRIP_PLAN
@@ -374,12 +405,22 @@ def _sanitize_explicit_update(
     if not _query_sets_budget(state, query):
         sanitized.pop("budget", None)
     sanitized = _apply_explicit_date_update(state, query, sanitized)
-    if not re.search(
-        r"(?:\d{1,3}|[一二两三四五六七八九十])\s*(?:个|名)?(?:成年)?人|独自|单人|情侣|夫妻|一家|亲子",
-        query,
-    ):
+    if not _query_sets_people(query):
         sanitized.pop("people", None)
     return sanitized
+
+
+def _query_sets_people(query: str) -> bool:
+    ordinary = (
+        r"(?:\d{1,3}|[一二两三四五六七八九十])\s*(?:个|名)?(?:成年)?人|"
+        r"独自|单人|情侣|夫妻|一家|亲子"
+    )
+    family_composition = (
+        r"(?:\d{1,2}|[一二两三四五六七八九十])\s*(?:个)?(?:大人|成人|成年人|大)"
+        r"\s*(?:[、,，和加+与]\s*)?"
+        r"(?:\d{1,2}|[一二两三四五六七八九十])\s*(?:个)?(?:小孩|孩子|儿童|小)"
+    )
+    return bool(re.search(rf"(?:{ordinary})|(?:{family_composition})", query))
 
 
 def _query_sets_budget(state: TravelState, query: str) -> bool:

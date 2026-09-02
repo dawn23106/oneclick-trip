@@ -111,8 +111,8 @@ Page({
 
   showAbout() {
     wx.showModal({
-      title: '关于一键游',
-      content: '一键游把零散的旅行想法整理成清晰、可执行的完整行程。当前版本为项目演示版。',
+      title: '关于旅行计划簿',
+      content: '旅行计划簿把零散的旅行想法整理成清晰、可执行的完整行程。',
       showCancel: false,
       confirmColor: '#267254'
     })

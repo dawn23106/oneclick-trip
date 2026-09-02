@@ -13,6 +13,7 @@ import com.oneclicktrip.entity.User;
 import com.oneclicktrip.mapper.AiConversationMapper;
 import com.oneclicktrip.mapper.AiMessageMapper;
 import com.oneclicktrip.mapper.UserMapper;
+import com.oneclicktrip.service.AgentRunLogService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,19 +37,22 @@ public class AdminAiConversationController {
     private final UserMapper userMapper;
     private final ObjectMapper objectMapper;
     private final JdbcTemplate jdbcTemplate;
+    private final AgentRunLogService agentRunLogService;
 
     public AdminAiConversationController(
             AiConversationMapper conversationMapper,
             AiMessageMapper messageMapper,
             UserMapper userMapper,
             ObjectMapper objectMapper,
-            JdbcTemplate jdbcTemplate
+            JdbcTemplate jdbcTemplate,
+            AgentRunLogService agentRunLogService
     ) {
         this.conversationMapper = conversationMapper;
         this.messageMapper = messageMapper;
         this.userMapper = userMapper;
         this.objectMapper = objectMapper;
         this.jdbcTemplate = jdbcTemplate;
+        this.agentRunLogService = agentRunLogService;
     }
 
     @GetMapping
@@ -84,8 +88,15 @@ public class AdminAiConversationController {
 
         Page<AiConversation> source = conversationMapper.selectPage(new Page<>(page, size), wrapper);
         Map<Long, User> users = loadUsers(source.getRecords());
+        Map<String, Map<String, Object>> healthByConversation = agentRunLogService.healthByConversationIds(
+                source.getRecords().stream().map(AiConversation::getConversationId).toList()
+        );
         List<Map<String, Object>> records = source.getRecords().stream()
-                .map(conversation -> conversationMap(conversation, users.get(conversation.getUserId())))
+                .map(conversation -> conversationMap(
+                        conversation,
+                        users.get(conversation.getUserId()),
+                        healthByConversation.getOrDefault(conversation.getConversationId(), agentRunLogService.emptyHealth())
+                ))
                 .toList();
 
         Page<Map<String, Object>> result = new Page<>(source.getCurrent(), source.getSize(), source.getTotal());
@@ -107,9 +118,13 @@ public class AdminAiConversationController {
                 .stream().map(this::messageMap).toList();
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("conversation", conversationMap(conversation, user));
+        Map<String, Object> traceSummary = agentRunLogService.healthByConversationIds(
+                List.of(conversation.getConversationId())
+        ).getOrDefault(conversation.getConversationId(), agentRunLogService.emptyHealth());
+        result.put("conversation", conversationMap(conversation, user, traceSummary));
         result.put("messages", messages);
         result.put("planVersions", planVersions(conversation.getConversationId()));
+        result.put("traceSummary", traceSummary);
         return ApiResponse.ok(result);
     }
 
@@ -133,7 +148,11 @@ public class AdminAiConversationController {
                 .collect(Collectors.toMap(User::getId, Function.identity()));
     }
 
-    private Map<String, Object> conversationMap(AiConversation conversation, User user) {
+    private Map<String, Object> conversationMap(
+            AiConversation conversation,
+            User user,
+            Map<String, Object> traceSummary
+    ) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("id", conversation.getId());
         data.put("conversationId", conversation.getConversationId());
@@ -142,6 +161,13 @@ public class AdminAiConversationController {
         data.put("nickname", user == null ? "" : user.getNickname());
         data.put("title", conversation.getTitle());
         data.put("status", conversation.getStatus());
+        data.put("healthStatus", traceSummary.get("healthStatus"));
+        data.put("totalRuns", traceSummary.get("totalRuns"));
+        data.put("failedRuns", traceSummary.get("failedRuns"));
+        data.put("toolErrorRuns", traceSummary.get("toolErrorRuns"));
+        data.put("degradedRuns", traceSummary.get("degradedRuns"));
+        data.put("abnormalRuns", traceSummary.get("abnormalRuns"));
+        data.put("lastRunAt", traceSummary.get("lastRunAt"));
         data.put("lastMessagePreview", redact(conversation.getLastMessagePreview()));
         data.put("messageCount", conversation.getMessageCount());
         data.put("createTime", conversation.getCreateTime());

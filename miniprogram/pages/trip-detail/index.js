@@ -1,6 +1,6 @@
 const api = require('../../utils/api')
 const { create: createBookingDraft } = require('../../utils/booking-api')
-const { requireAuth } = require('../../utils/session')
+const { requireAuth, setConversationId } = require('../../utils/session')
 const { money, dateLabel, joinSentences } = require('../../utils/format')
 const { resolveCityImage } = require('../../utils/travel-assets')
 
@@ -156,7 +156,15 @@ Page({
   },
 
   continueWithAi() {
-    wx.setStorageSync('oneclick_trip_pending_prompt', `请继续帮我优化“${this.data.trip.title}”`)
+    const conversationId = this.data.trip.conversationId
+    if (conversationId) {
+      setConversationId(conversationId)
+      wx.setStorageSync('oneclick_trip_pending_conversation_id', conversationId)
+    }
+    wx.setStorageSync(
+      'oneclick_trip_pending_prompt',
+      `请基于当前“${this.data.trip.title}”做整体优化：保留已经确认的目的地、天数、人数和预算，不要重复询问；重点检查路线衔接、每日节奏、开放时间冲突和预算合理性，并生成一个新的行程版本。`
+    )
     wx.switchTab({ url: '/pages/ai/index' })
   },
 
@@ -218,7 +226,7 @@ Page({
 
   onShareAppMessage() {
     return {
-      title: this.data.trip ? this.data.trip.title : '我的一键游行程',
+      title: this.data.trip ? this.data.trip.title : '我的旅行计划簿行程',
       path: `/pages/trip-detail/index?id=${this.data.id}&type=${this.data.type}`
     }
   }

@@ -27,5 +27,9 @@
 .trip-data { display: flex; gap: 18rpx; margin-top: 20rpx; padding: 16rpx 0; border-top: 1rpx solid #e8eeea; color: #53665c; font-size: 22rpx; }
 .trip-data text + text { padding-left: 18rpx; border-left: 1rpx solid #dce5df; }
 .open-row { display: flex; padding-top: 4rpx; justify-content: space-between; color: #2c6e50; font-size: 23rpx; font-weight: 650; }
-.loading-card { display: flex; height: 250rpx; }.loading-card .trip-cover { flex: 0 0 220rpx; height: 100%; }.loading-card .trip-body { flex: 1; }
-.line { width: 70%; height: 24rpx; margin: 20rpx 0; }.line.wide { width: 92%; height: 34rpx; }.line.short { width: 48%; }
+.loading-state { display: flex; min-height: 150rpx; align-items: center; justify-content: center; gap: 24rpx; color: #436454; }
+.loading-spinner { width: 38rpx; height: 38rpx; border: 5rpx solid #dce9e1; border-top-color: #347557; border-radius: 50%; animation: loading-spin .8s linear infinite; }
+.loading-title, .loading-copy { display: block; }
+.loading-title { font-size: 27rpx; font-weight: 700; }
+.loading-copy { margin-top: 4rpx; color: #87938c; font-size: 21rpx; }
+@keyframes loading-spin { to { transform: rotate(360deg); } }

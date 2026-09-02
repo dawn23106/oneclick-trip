@@ -1,0 +1,6 @@
+.legal-page { min-height: 100vh; padding: 40rpx 34rpx calc(60rpx + env(safe-area-inset-bottom)); background: #f6faf7; }
+.legal-title { color: #26372f; font-size: 42rpx; font-weight: 800; }
+.legal-date { margin-top: 10rpx; color: #829087; font-size: 23rpx; }
+.legal-section { margin-top: 40rpx; }
+.section-title { color: #26372f; font-size: 30rpx; font-weight: 700; }
+.section-copy { margin-top: 14rpx; color: #5f7067; font-size: 27rpx; line-height: 1.9; }

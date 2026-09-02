@@ -38,40 +38,53 @@ Page({
       greeting: greeting(),
       currentCity: this.data.currentCity || cachedCity
     })
-    // Refresh the catalog on every visit so hot reload and backend data changes
-    // cannot leave stale web-only asset paths in the page state.
-    this.loadData()
+    // Tab 页面在切换时会反复触发 onShow。目录数据只在首次进入时加载，
+    // 后续保留已经渲染的图片，避免骨架屏与真实内容反复切换造成闪烁。
+    if (!this.catalogLoaded) this.loadData(true)
     this.tryAutoLocation()
   },
 
   async onPullDownRefresh() {
-    await this.loadData()
+    await this.loadData(false)
     wx.stopPullDownRefresh()
   },
 
-  async loadData() {
-    this.setData({ loading: true, error: '' })
+  async loadData(showLoading = !this.catalogLoaded) {
+    if (this.catalogLoading) return this.catalogLoading
+
+    const load = async () => {
+      if (showLoading) this.setData({ loading: true, error: '' })
+      else this.setData({ error: '' })
+      try {
+        const [cities, templates] = await Promise.all([api.cities(), api.templates()])
+        this.setData({
+          cities: (cities || []).slice(0, 6).map((item, index) => ({
+            ...item,
+            imageUrl: resolveCityImage(item.name, item.id),
+            initial: String(item.name || '旅').slice(0, 1),
+            toneClass: `tone-${index % 3}`
+          })),
+          templates: (templates || []).slice(0, 6).map(item => ({
+            ...item,
+            coverUrl: resolveCityImage(item.title, item.cityId),
+            paceLabel: item.pace === 'COMPACT' ? '紧凑' : '舒适',
+            budgetLabel: item.budgetLevel === 'HIGH' ? '高预算' : item.budgetLevel === 'LOW' ? '省着玩' : '预算适中'
+          }))
+        })
+        this.catalogLoaded = true
+        if (this.data.currentCity) await this.loadNearbyRecommendations(this.data.currentCity)
+      } catch (error) {
+        this.setData({ error: error.message || '内容加载失败' })
+      } finally {
+        this.setData({ loading: false })
+      }
+    }
+
+    this.catalogLoading = load()
     try {
-      const [cities, templates] = await Promise.all([api.cities(), api.templates()])
-      this.setData({
-        cities: (cities || []).slice(0, 6).map((item, index) => ({
-          ...item,
-          imageUrl: resolveCityImage(item.name, item.id),
-          initial: String(item.name || '旅').slice(0, 1),
-          toneClass: `tone-${index % 3}`
-        })),
-        templates: (templates || []).slice(0, 6).map(item => ({
-          ...item,
-          coverUrl: resolveCityImage(item.title, item.cityId),
-          paceLabel: item.pace === 'COMPACT' ? '紧凑' : '舒适',
-          budgetLabel: item.budgetLevel === 'HIGH' ? '高预算' : item.budgetLevel === 'LOW' ? '省着玩' : '预算适中'
-        }))
-      })
-      if (this.data.currentCity) await this.loadNearbyRecommendations(this.data.currentCity)
-    } catch (error) {
-      this.setData({ error: error.message || '内容加载失败' })
+      return await this.catalogLoading
     } finally {
-      this.setData({ loading: false })
+      this.catalogLoading = null
     }
   },
 

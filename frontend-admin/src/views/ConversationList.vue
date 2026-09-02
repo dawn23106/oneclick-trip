@@ -36,9 +36,19 @@
           <el-table-column label="消息数" width="90" align="center">
             <template #default="{ row }">{{ row.messageCount }} 条</template>
           </el-table-column>
-          <el-table-column label="状态" width="90">
+          <el-table-column label="健康状态" width="118">
             <template #default="{ row }">
-              <el-tag type="success" size="small" effect="plain">{{ row.status === 'ACTIVE' ? '正常' : row.status }}</el-tag>
+              <el-tag :type="healthTagType(row.healthStatus)" size="small" effect="plain">
+                {{ healthLabel(row.healthStatus) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="运行追踪" width="116" align="center">
+            <template #default="{ row }">
+              <span class="trace-count">{{ row.totalRuns || 0 }} 次</span>
+              <span v-if="abnormalRunCount(row)" class="trace-problem">
+                {{ abnormalRunCount(row) }} 次需排查
+              </span>
             </template>
           </el-table-column>
           <el-table-column label="最后更新" width="170">
@@ -65,7 +75,7 @@
       </div>
     </div>
 
-    <el-drawer v-model="drawerVisible" title="会话详情" size="min(620px, 92vw)">
+    <el-drawer v-model="drawerVisible" title="会话详情" size="min(760px, 96vw)">
       <template v-if="selectedConversation">
         <el-descriptions :column="1" border class="conversation-meta">
           <el-descriptions-item label="用户">
@@ -75,7 +85,73 @@
           <el-descriptions-item label="标题">{{ selectedConversation.title }}</el-descriptions-item>
           <el-descriptions-item label="会话 ID">{{ selectedConversation.conversationId }}</el-descriptions-item>
           <el-descriptions-item label="消息数">{{ selectedConversation.messageCount }} 条</el-descriptions-item>
+          <el-descriptions-item label="生命周期">
+            {{ selectedConversation.status === 'ACTIVE' ? '可继续对话' : selectedConversation.status }}
+          </el-descriptions-item>
+          <el-descriptions-item label="健康状态">
+            <el-tag :type="healthTagType(selectedConversation.healthStatus)" size="small" effect="plain">
+              {{ healthLabel(selectedConversation.healthStatus) }}
+            </el-tag>
+          </el-descriptions-item>
         </el-descriptions>
+
+        <el-alert
+          v-if="traceSummary.healthStatus === 'FAILED'"
+          title="该会话存在 Agent 运行失败"
+          :description="traceDescription"
+          type="error"
+          show-icon
+          :closable="false"
+          class="trace-alert"
+        />
+        <el-alert
+          v-else-if="traceSummary.healthStatus === 'TOOL_ERROR'"
+          title="该会话存在工具调用异常"
+          :description="traceDescription"
+          type="error"
+          show-icon
+          :closable="false"
+          class="trace-alert"
+        />
+        <el-alert
+          v-else-if="traceSummary.healthStatus === 'DEGRADED'"
+          title="该会话曾使用降级数据或规则兜底"
+          :description="traceDescription"
+          type="warning"
+          show-icon
+          :closable="false"
+          class="trace-alert"
+        />
+
+        <section class="trace-panel">
+          <div class="section-heading">
+            <div>
+              <h4>关联 Agent 运行</h4>
+              <p>这里仅展示会话级摘要；节点、工具和错误详情请前往 Agent 运行管理排查</p>
+            </div>
+            <el-tag size="small" :type="healthTagType(traceSummary.healthStatus)" effect="plain">
+              {{ traceSummary.totalRuns || 0 }} 次运行
+            </el-tag>
+          </div>
+
+          <div class="trace-metrics">
+            <div><span>全部运行</span><strong>{{ traceSummary.totalRuns || 0 }}</strong></div>
+            <div class="danger"><span>运行失败</span><strong>{{ traceSummary.failedRuns || 0 }}</strong></div>
+            <div class="danger"><span>工具异常</span><strong>{{ traceSummary.toolErrorRuns || 0 }}</strong></div>
+            <div class="warning"><span>降级运行</span><strong>{{ traceSummary.degradedRuns || 0 }}</strong></div>
+          </div>
+          <div class="trace-action">
+            <span v-if="traceSummary.totalRuns">将按当前会话 ID 自动筛选对应运行记录</span>
+            <span v-else>该会话尚无 Agent 运行日志</span>
+            <el-button
+              type="primary"
+              :disabled="!traceSummary.totalRuns"
+              @click="goToAgentRuns"
+            >
+              前往 Agent 运行管理
+            </el-button>
+          </div>
+        </section>
 
         <section class="plan-version-panel">
           <div class="section-heading">
@@ -130,7 +206,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { deleteConversation, fetchConversation, fetchConversations } from '../api/admin.js'
@@ -148,7 +224,13 @@ const drawerVisible = ref(false)
 const selectedConversation = ref(null)
 const selectedMessages = ref([])
 const selectedPlanVersions = ref([])
+const traceSummary = ref({})
 let searchTimer = null
+
+const traceDescription = computed(() => {
+  const summary = traceSummary.value || {}
+  return `共 ${summary.totalRuns || 0} 次运行，其中运行失败 ${summary.failedRuns || 0} 次、工具异常 ${summary.toolErrorRuns || 0} 次、降级 ${summary.degradedRuns || 0} 次。请前往 Agent 运行管理查看具体节点和错误码。`
+})
 
 onMounted(loadConversations)
 
@@ -183,6 +265,7 @@ async function viewDetail(row) {
     selectedConversation.value = data.conversation
     selectedMessages.value = data.messages || []
     selectedPlanVersions.value = data.planVersions || []
+    traceSummary.value = data.traceSummary || {}
     drawerVisible.value = true
   } catch (error) {
     ElMessage.error(error.message || '加载会话详情失败')
@@ -206,10 +289,39 @@ function clearUserFilter() {
   loadConversations()
 }
 
+function goToAgentRuns() {
+  const conversationId = selectedConversation.value?.conversationId
+  if (!conversationId) return
+  drawerVisible.value = false
+  router.push({ path: '/agent-runs', query: { conversationId } })
+}
+
 function formatDate(value) {
   if (!value) return '-'
   return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
+
+function healthLabel(value) {
+  return {
+    FAILED: '运行失败',
+    TOOL_ERROR: '工具异常',
+    DEGRADED: '降级运行',
+    HEALTHY: '运行正常',
+    NO_RUN: '无运行记录'
+  }[value] || value || '未知'
+}
+
+function healthTagType(value) {
+  if (value === 'FAILED' || value === 'TOOL_ERROR') return 'danger'
+  if (value === 'DEGRADED') return 'warning'
+  if (value === 'HEALTHY') return 'success'
+  return 'info'
+}
+
+function abnormalRunCount(row) {
+  return Number(row.abnormalRuns || 0)
+}
+
 </script>
 
 <style scoped>
@@ -220,8 +332,23 @@ function formatDate(value) {
 }
 
 .conversation-meta {
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
+
+.trace-alert { margin-bottom: 16px; }
+.trace-panel { margin-bottom: 24px; padding: 18px; border: 1px solid var(--admin-border); background: #fbfdfc; }
+.section-heading > div > p { margin: 4px 0 0; color: var(--admin-text-muted); font-size: 12px; }
+.trace-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 14px 0 16px; border: 1px solid var(--admin-border); background: #fff; }
+.trace-metrics > div { padding: 12px 14px; border-right: 1px solid var(--admin-border); }
+.trace-metrics > div:last-child { border-right: 0; }
+.trace-metrics span { display: block; color: var(--admin-text-muted); font-size: 11px; }
+.trace-metrics strong { display: block; margin-top: 5px; font-size: 20px; }
+.trace-metrics .danger strong, .trace-problem { color: #c2413c; }
+.trace-metrics .warning strong { color: #ad6800; }
+.trace-count, .trace-problem { display: block; font-size: 12px; line-height: 1.45; }
+.trace-problem { font-weight: 700; }
+.trace-action { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.trace-action span { color: var(--admin-text-muted); font-size: 12px; }
 
 .message-history h4 {
   margin: 0 0 14px;
@@ -296,5 +423,11 @@ function formatDate(value) {
   padding: 50px 0;
   color: var(--admin-text-muted);
   text-align: center;
+}
+
+@media (max-width: 760px) {
+  .trace-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .trace-metrics > div:nth-child(2) { border-right: 0; }
+  .trace-action { align-items: stretch; flex-direction: column; }
 }
 </style>

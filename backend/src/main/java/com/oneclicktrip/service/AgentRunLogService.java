@@ -13,6 +13,8 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -164,6 +166,76 @@ public class AgentRunLogService {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    public List<Map<String, Object>> listByConversation(String conversationId) {
+        if (!hasText(conversationId)) {
+            return List.of();
+        }
+        return jdbcTemplate.query(
+                BASE_SELECT + " WHERE r.conversation_id = ? ORDER BY COALESCE(r.started_at, r.create_time) DESC, r.id DESC",
+                this::mapRow,
+                conversationId
+        );
+    }
+
+    public Map<String, Map<String, Object>> healthByConversationIds(List<String> conversationIds) {
+        List<String> ids = conversationIds == null
+                ? List.of()
+                : conversationIds.stream().filter(this::hasText).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        String sql = """
+                SELECT conversation_id,
+                       COUNT(*) total_runs,
+                       COALESCE(SUM(status = 'FAILED'), 0) failed_runs,
+                       COALESCE(SUM(JSON_LENGTH(tool_errors_json) > 0), 0) tool_error_runs,
+                       COALESCE(SUM(JSON_LENGTH(degradation_modes_json) > 0), 0) degraded_runs,
+                       COALESCE(SUM(status = 'COMPLETED'
+                           AND JSON_LENGTH(tool_errors_json) = 0
+                           AND JSON_LENGTH(degradation_modes_json) = 0), 0) healthy_runs,
+                       COALESCE(SUM(status = 'FAILED'
+                           OR JSON_LENGTH(tool_errors_json) > 0
+                           OR JSON_LENGTH(degradation_modes_json) > 0), 0) abnormal_runs,
+                       MAX(COALESCE(completed_at, create_time)) last_run_at
+                FROM ai_agent_run_log
+                WHERE conversation_id IN (%s)
+                GROUP BY conversation_id
+                """.formatted(placeholders);
+
+        Map<String, Map<String, Object>> result = new HashMap<>();
+        jdbcTemplate.query(sql, rs -> {
+            long failedRuns = rs.getLong("failed_runs");
+            long toolErrorRuns = rs.getLong("tool_error_runs");
+            long degradedRuns = rs.getLong("degraded_runs");
+            Map<String, Object> health = new LinkedHashMap<>();
+            health.put("healthStatus", healthStatus(failedRuns, toolErrorRuns, degradedRuns));
+            health.put("totalRuns", rs.getLong("total_runs"));
+            health.put("failedRuns", failedRuns);
+            health.put("toolErrorRuns", toolErrorRuns);
+            health.put("degradedRuns", degradedRuns);
+            health.put("healthyRuns", rs.getLong("healthy_runs"));
+            health.put("abnormalRuns", rs.getLong("abnormal_runs"));
+            health.put("lastRunAt", rs.getTimestamp("last_run_at"));
+            result.put(rs.getString("conversation_id"), health);
+        }, ids.toArray());
+        return result;
+    }
+
+    public Map<String, Object> emptyHealth() {
+        Map<String, Object> health = new LinkedHashMap<>();
+        health.put("healthStatus", "NO_RUN");
+        health.put("totalRuns", 0L);
+        health.put("failedRuns", 0L);
+        health.put("toolErrorRuns", 0L);
+        health.put("degradedRuns", 0L);
+        health.put("healthyRuns", 0L);
+        health.put("abnormalRuns", 0L);
+        health.put("lastRunAt", null);
+        return health;
+    }
+
     public Map<String, Object> stats() {
         // 聚合后台仪表盘所需的执行状态与意图分布统计。
         return jdbcTemplate.queryForObject("""
@@ -247,7 +319,38 @@ public class AgentRunLogService {
         data.put("startedAt", rs.getTimestamp("started_at"));
         data.put("completedAt", rs.getTimestamp("completed_at"));
         data.put("createTime", rs.getTimestamp("create_time"));
+        data.put("traceStatus", runTraceStatus(
+                rs.getString("status"),
+                data.get("toolErrors"),
+                data.get("degradationModes")
+        ));
         return data;
+    }
+
+    private String runTraceStatus(String status, Object toolErrors, Object degradationModes) {
+        if ("FAILED".equalsIgnoreCase(status)) {
+            return "FAILED";
+        }
+        if (toolErrors instanceof JsonNode errors && errors.isArray() && !errors.isEmpty()) {
+            return "TOOL_ERROR";
+        }
+        if (degradationModes instanceof JsonNode modes && modes.isArray() && !modes.isEmpty()) {
+            return "DEGRADED";
+        }
+        return "HEALTHY";
+    }
+
+    private String healthStatus(long failedRuns, long toolErrorRuns, long degradedRuns) {
+        if (failedRuns > 0) {
+            return "FAILED";
+        }
+        if (toolErrorRuns > 0) {
+            return "TOOL_ERROR";
+        }
+        if (degradedRuns > 0) {
+            return "DEGRADED";
+        }
+        return "HEALTHY";
     }
 
     private JsonNode readJson(String value) {

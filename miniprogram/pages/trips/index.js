@@ -31,39 +31,55 @@ Page({
 
   onShow() {
     if (!requireAuth()) return
-    this.loadTrips()
+    this.loadTrips(!this.hasLoadedTrips)
   },
 
   async onPullDownRefresh() {
-    await this.loadTrips()
+    await this.loadTrips(false)
     wx.stopPullDownRefresh()
   },
 
-  async loadTrips() {
-    this.setData({ loading: true, error: '' })
+  async loadTrips(showLoading = !this.hasLoadedTrips) {
+    if (this.tripsLoading) return this.tripsLoading
+
+    const load = async () => {
+      if (showLoading) this.setData({ loading: true, error: '' })
+      try {
+        const list = await api.tripPlans()
+        const trips = (list || []).map((item, index) => {
+          const state = tripState(item.startDate, item.days, item.tripStatus)
+          const statusMap = {
+            UPCOMING: '待出发', ACTIVE: '旅行中', PAST: '已结束', PLANNING: '规划中', COMPLETED: '已完成'
+          }
+          return {
+            ...item,
+            state,
+            statusLabel: statusMap[state],
+            dateText: item.startDate ? `${dateLabel(item.startDate)} · ${item.days || '?'}天` : `${item.days || '?'}天 · 日期待定`,
+            budgetText: money(item.totalBudget, item.currency),
+            sourceLabel: item.planType === 'AI' ? 'AI 智能规划' : '基础路线',
+            coverUrl: resolveCityImage(item.destination),
+            coverClass: `cover-${index % 4}`
+          }
+        })
+        this.hasLoadedTrips = true
+        this.setData({ trips, error: '' }, () => this.applyFilter())
+      } catch (error) {
+        if (this.hasLoadedTrips) {
+          wx.showToast({ title: '行程刷新失败，请稍后重试', icon: 'none' })
+        } else {
+          this.setData({ error: error.message || '行程加载失败' })
+        }
+      } finally {
+        this.setData({ loading: false })
+      }
+    }
+
+    this.tripsLoading = load()
     try {
-      const list = await api.tripPlans()
-      const trips = (list || []).map((item, index) => {
-        const state = tripState(item.startDate, item.days, item.tripStatus)
-        const statusMap = {
-          UPCOMING: '待出发', ACTIVE: '旅行中', PAST: '已结束', PLANNING: '规划中', COMPLETED: '已完成'
-        }
-        return {
-          ...item,
-          state,
-          statusLabel: statusMap[state],
-          dateText: item.startDate ? `${dateLabel(item.startDate)} · ${item.days || '?'}天` : `${item.days || '?'}天 · 日期待定`,
-          budgetText: money(item.totalBudget, item.currency),
-          sourceLabel: item.planType === 'AI' ? 'AI 智能规划' : '基础路线',
-          coverUrl: resolveCityImage(item.destination),
-          coverClass: `cover-${index % 4}`
-        }
-      })
-      this.setData({ trips }, () => this.applyFilter())
-    } catch (error) {
-      this.setData({ error: error.message || '行程加载失败' })
+      return await this.tripsLoading
     } finally {
-      this.setData({ loading: false })
+      this.tripsLoading = null
     }
   },
 

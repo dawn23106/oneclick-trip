@@ -185,6 +185,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import { fetchAgentRun, fetchAgentRuns, fetchAgentRunStats } from '../api/admin.js'
@@ -203,6 +204,7 @@ const nodeLabels = {
 }
 
 const loading = ref(false)
+const route = useRoute()
 const runs = ref([])
 const stats = ref({})
 const page = ref(1)
@@ -210,7 +212,12 @@ const size = ref(20)
 const total = ref(0)
 const drawerVisible = ref(false)
 const selectedRun = ref(null)
-const filters = reactive({ keyword: '', intent: '', status: '', timeRange: [] })
+const filters = reactive({
+  keyword: route.query.conversationId || '',
+  intent: '',
+  status: '',
+  timeRange: []
+})
 
 const nodeTimingRows = computed(() => {
   const entries = Object.entries(selectedRun.value?.nodeTimings || {})

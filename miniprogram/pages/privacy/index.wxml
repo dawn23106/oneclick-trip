@@ -1,0 +1,29 @@
+<view class="legal-page">
+  <view class="legal-title">旅行计划簿隐私政策</view>
+  <view class="legal-date">更新日期：2026年9月2日</view>
+
+  <view class="legal-section">
+    <view class="section-title">一、我们收集的信息</view>
+    <view class="section-copy">注册和登录时，我们处理你主动填写的用户名、昵称及账号凭证；使用规划功能时，我们处理你提交的目的地、日期、人数、预算、偏好、对话内容，以及你保存的行程和预订记录。</view>
+  </view>
+  <view class="legal-section">
+    <view class="section-title">二、使用目的</view>
+    <view class="section-copy">上述信息用于创建和保护账号、生成及保存旅行计划、展示历史记录、排查故障和保障服务安全。未经另行说明和授权，我们不会将信息用于与这些目的无关的用途。</view>
+  </view>
+  <view class="legal-section">
+    <view class="section-title">三、存储与保护</view>
+    <view class="section-copy">我们仅在实现服务功能和履行法定义务所需的期限内保存信息，并采取访问控制、加密传输等合理安全措施。互联网服务无法保证绝对安全，如发生安全事件，我们将依法处理。</view>
+  </view>
+  <view class="legal-section">
+    <view class="section-title">四、对外提供</view>
+    <view class="section-copy">除实现必要功能、依法履行义务或取得你的单独同意外，我们不会向无关第三方出售或提供你的个人信息。接入第三方能力时，将按平台要求另行告知相关处理规则。</view>
+  </view>
+  <view class="legal-section">
+    <view class="section-title">五、你的权利</view>
+    <view class="section-copy">你可以查看和修改账号中的相关内容、退出登录，也可以申请查询、更正或删除个人信息以及注销账号。请通过微信公众平台展示的旅行计划簿运营者信息联系我们处理。</view>
+  </view>
+  <view class="legal-section">
+    <view class="section-title">六、未成年人保护</view>
+    <view class="section-copy">未成年人应在监护人指导下使用本服务。我们不会主动以未成年人为对象收集超出服务所必需的信息。</view>
+  </view>
+</view>

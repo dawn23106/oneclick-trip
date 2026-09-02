@@ -110,7 +110,7 @@
     <scroll-view wx:if="{{!loading}}" class="city-scroll" scroll-x enhanced show-scrollbar="false">
       <view class="city-row">
         <view wx:for="{{cities}}" wx:key="id" class="city-card" data-index="{{index}}" bindtap="startCity">
-          <image wx:if="{{item.imageUrl}}" src="{{item.imageUrl}}" mode="aspectFill" lazy-load />
+          <image wx:if="{{item.imageUrl}}" src="{{item.imageUrl}}" mode="aspectFill" />
           <view wx:else class="city-fallback {{item.toneClass}}"><text>{{item.initial}}</text></view>
           <view class="city-shade"></view>
           <view class="city-meta">
@@ -134,7 +134,7 @@
 
     <view wx:if="{{!loading}}" class="template-list">
       <view wx:for="{{templates}}" wx:key="id" class="template-card card" data-index="{{index}}" bindtap="startTemplate">
-        <image wx:if="{{item.coverUrl}}" class="template-cover" src="{{item.coverUrl}}" mode="aspectFill" lazy-load />
+        <image wx:if="{{item.coverUrl}}" class="template-cover" src="{{item.coverUrl}}" mode="aspectFill" />
         <view wx:else class="template-cover template-fallback"><text>路线</text></view>
         <view class="template-body">
           <view class="template-top"><text class="template-days">{{item.days}} DAYS</text><text class="template-arrow">↗</text></view>

@@ -1,0 +1,25 @@
+<view class="legal-page">
+  <view class="legal-title">旅行计划簿服务条款</view>
+  <view class="legal-date">更新日期：2026年9月2日</view>
+
+  <view class="legal-section">
+    <view class="section-title">一、服务说明</view>
+    <view class="section-copy">旅行计划簿提供旅行信息整理、行程规划、预算参考和预订信息记录等辅助功能。生成内容仅供参考，实际价格、开放时间、交通与安全情况请以服务提供方和有关部门发布的信息为准。</view>
+  </view>
+  <view class="legal-section">
+    <view class="section-title">二、账号使用</view>
+    <view class="section-copy">你应提供真实、合法的信息并妥善保管账号凭证。不得利用本服务发布违法内容、侵害他人权益、干扰系统运行或实施其他违反法律法规的行为。</view>
+  </view>
+  <view class="legal-section">
+    <view class="section-title">三、行程与预订</view>
+    <view class="section-copy">当前规划结果不构成交易承诺或专业建议。涉及交通、住宿、门票等预订时，应在第三方服务提供方处核对订单、价格、退改规则及安全提示后自行决定。</view>
+  </view>
+  <view class="legal-section">
+    <view class="section-title">四、服务变更</view>
+    <view class="section-copy">为维护安全和改善体验，服务内容可能更新、暂停或调整。我们会在合理范围内保护你的合法权益，并按法律法规要求处理相关事项。</view>
+  </view>
+  <view class="legal-section">
+    <view class="section-title">五、联系我们</view>
+    <view class="section-copy">如对本条款、账号或数据处理有疑问，可通过微信公众平台展示的旅行计划簿运营者信息联系我们。</view>
+  </view>
+</view>

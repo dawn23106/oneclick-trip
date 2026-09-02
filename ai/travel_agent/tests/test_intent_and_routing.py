@@ -597,6 +597,46 @@ def test_modify_and_booking_require_current_plan() -> None:
     ]
 
 
+def test_optimize_existing_plan_routes_to_modify_without_reasking_slots() -> None:
+    result = invoke(
+        "请继续帮我优化‘成都 3 天智能行程’",
+        current_plan=current_plan(),
+        entities=TravelEntities(
+            destination="成都",
+            days=3,
+            people=5,
+            budget=Decimal("5000"),
+            budget_scope=BudgetScope.TOTAL,
+        ),
+    )
+
+    assert result["intent"] is Intent.MODIFY_PLAN
+    assert result["missing_fields"] == []
+    assert result["entities"].people == 5
+
+
+def test_retry_after_planning_failure_keeps_completed_slots() -> None:
+    result = invoke(
+        "总预算调整到6000元，继续规划",
+        intent=Intent.TRIP_PLAN,
+        entities=TravelEntities(
+            destination="成都",
+            days=3,
+            people=5,
+            budget=Decimal("5000"),
+            budget_scope=BudgetScope.TOTAL,
+        ),
+        missing_fields=[],
+    )
+
+    assert result["intent"] is Intent.TRIP_PLAN
+    assert result["missing_fields"] == []
+    assert result["entities"].destination == "成都"
+    assert result["entities"].days == 3
+    assert result["entities"].people == 5
+    assert result["entities"].budget == Decimal("6000")
+
+
 def test_explicit_request_preferences_override_long_term_memory() -> None:
     patch = normalize_state(
         {

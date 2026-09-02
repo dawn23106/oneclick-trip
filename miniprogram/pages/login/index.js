@@ -5,6 +5,7 @@ Page({
   data: {
     mode: 'login',
     form: { username: '', password: '', nickname: '' },
+    agreed: false,
     loading: false,
     error: ''
   },
@@ -22,12 +23,12 @@ Page({
     this.setData({ [`form.${field}`]: event.detail.value, error: '' })
   },
 
-  fillDemo() {
-    this.setData({
-      mode: 'login',
-      form: { username: 'user', password: '123456', nickname: '' },
-      error: ''
-    })
+  toggleAgreement() {
+    this.setData({ agreed: !this.data.agreed, error: '' })
+  },
+
+  openLegal(event) {
+    wx.navigateTo({ url: `/pages/${event.currentTarget.dataset.page}/index` })
   },
 
   async submit() {
@@ -38,6 +39,10 @@ Page({
     const nickname = form.nickname.trim()
     if (!username || !password || (mode === 'register' && !nickname)) {
       this.setData({ error: '请把信息填写完整' })
+      return
+    }
+    if (!this.data.agreed) {
+      this.setData({ error: '请先阅读并同意服务条款与隐私政策' })
       return
     }
     if (mode === 'register' && (username.length < 3 || password.length < 6)) {

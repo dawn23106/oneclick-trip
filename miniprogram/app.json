@@ -7,12 +7,14 @@
     "pages/login/index",
     "pages/trip-detail/index",
     "pages/bookings/index",
-    "pages/preview/index"
+    "pages/preview/index",
+    "pages/agreement/index",
+    "pages/privacy/index"
   ],
   "window": {
     "navigationBarBackgroundColor": "#f6faf7",
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "一键游",
+    "navigationBarTitleText": "旅行计划簿",
     "backgroundColor": "#f6faf7",
     "backgroundTextStyle": "dark"
   },
@@ -37,5 +39,6 @@
     }
   },
   "requiredPrivateInfos": ["getLocation"],
+  "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"
 }
