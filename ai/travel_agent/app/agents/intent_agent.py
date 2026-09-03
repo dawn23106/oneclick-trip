@@ -9,6 +9,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from app.prompt_policy import AGENT_SECURITY_POLICY
 
+from app.domain.date_resolution import resolve_explicit_dates
 from app.domain.models import (
     BudgetMode,
     BudgetScope,
@@ -428,25 +429,7 @@ class RuleBasedIntentAgent:
     @staticmethod
     def _extract_dates(text: str) -> list[date]:
         """解析相对日期和中文年月日表达，并统一转换为 date。"""
-        same_month_range = re.search(
-            r"(?:(\d{4})年)?(\d{1,2})月(\d{1,2})[日号]?\s*(?:至|到|-|~)\s*(\d{1,2})[日号]",
-            text,
-        )
-        if same_month_range:
-            year, month, start_day, end_day = same_month_range.groups()
-            resolved_year = int(year) if year else date.today().year
-            return [
-                date(resolved_year, int(month), int(start_day)),
-                date(resolved_year, int(month), int(end_day)),
-            ]
-        result: list[date] = []
-        for marker, offset in (("今天", 0), ("明天", 1), ("后天", 2)):
-            if marker in text:
-                result.append(date.fromordinal(date.today().toordinal() + offset))
-                break
-        for year, month, day in re.findall(r"(?:(\d{4})年)?(\d{1,2})月(\d{1,2})[日号]", text):
-            result.append(date(int(year) if year else date.today().year, int(month), int(day)))
-        return result
+        return resolve_explicit_dates(text)
 
 
 def infer_query_tasks(query: str) -> list[IntentTask]:

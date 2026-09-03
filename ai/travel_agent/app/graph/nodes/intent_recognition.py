@@ -1,5 +1,5 @@
 import re
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 from langchain_core.messages import AIMessage, HumanMessage
@@ -11,6 +11,7 @@ from app.agents.intent_agent import (
     enforce_code_owned_intent,
     infer_query_tasks,
 )
+from app.domain.date_resolution import resolve_explicit_dates
 from app.domain.models import (
     BudgetMode,
     BudgetScope,
@@ -583,22 +584,18 @@ def _apply_explicit_date_update(
     sanitized: dict,
 ) -> dict:
     del state
-    relative_days = {"今天": 0, "明天": 1, "后天": 2}
-    relative = next((offset for marker, offset in relative_days.items() if marker in query), None)
-    has_numeric_date = bool(
-        re.search(r"(?:\d{4}年)?\d{1,2}月\d{1,2}[日号]|\d{4}[-/]\d{1,2}[-/]\d{1,2}", query)
-    )
-    if relative is None and not has_numeric_date:
+    resolved_dates = resolve_explicit_dates(query)
+    if not resolved_dates:
         sanitized.pop("start_date", None)
         sanitized.pop("end_date", None)
         return sanitized
 
-    if relative is not None:
-        start = date.today() + timedelta(days=relative)
-        sanitized["start_date"] = start
-        days = sanitized.get("days")
-        if days:
-            sanitized["end_date"] = start + timedelta(days=int(days) - 1)
-        else:
-            sanitized.pop("end_date", None)
+    start = resolved_dates[0]
+    sanitized["start_date"] = start
+    if len(resolved_dates) > 1:
+        sanitized["end_date"] = resolved_dates[1]
+    elif sanitized.get("days"):
+        sanitized["end_date"] = start + timedelta(days=int(sanitized["days"]) - 1)
+    else:
+        sanitized.pop("end_date", None)
     return sanitized
