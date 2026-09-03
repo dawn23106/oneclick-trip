@@ -408,6 +408,12 @@ def _sanitize_explicit_update(
     sanitized = _apply_explicit_date_update(state, query, sanitized)
     if not _query_sets_people(query):
         sanitized.pop("people", None)
+    if not _query_sets_duration(query):
+        sanitized.pop("days", None)
+    if not _query_sets_destination(state, query, sanitized.get("destination")):
+        sanitized.pop("destination", None)
+    if not _query_sets_origin(state, query, sanitized.get("origin")):
+        sanitized.pop("origin", None)
     return sanitized
 
 
@@ -424,11 +430,52 @@ def _query_sets_people(query: str) -> bool:
     return bool(re.search(rf"(?:{ordinary})|(?:{family_composition})", query))
 
 
+def _query_sets_duration(query: str) -> bool:
+    return bool(
+        resolve_explicit_dates(query)
+        or re.search(
+            r"(?:\d{1,2}|[一二两三四五六七八九十])\s*(?:天|日|个?周|个?星期)",
+            query,
+        )
+    )
+
+
+def _query_sets_destination(
+    state: TravelState,
+    query: str,
+    destination: object | None,
+) -> bool:
+    if set(state.get("missing_fields", [])).intersection({"destination", "destination_detail"}):
+        return True
+    if destination and str(destination) in query:
+        return True
+    return bool(
+        re.search(
+            r"(?:想|要|准备|计划|打算)?(?:去|到|前往|飞往|改去|换去)|"
+            r"目的地|(?:旅游|旅行|游玩|周边玩|日游|天游)",
+            query,
+        )
+    )
+
+
+def _query_sets_origin(
+    state: TravelState,
+    query: str,
+    origin: object | None,
+) -> bool:
+    if "origin" in set(state.get("missing_fields", [])):
+        return True
+    if origin and str(origin) in query and re.search(r"从|由|出发", query):
+        return True
+    return bool(re.search(r"(?:从|由).{1,20}(?:出发|去|到|前往)|出发地", query))
+
+
 def _query_sets_budget(state: TravelState, query: str) -> bool:
     if _is_relative_budget_change(query):
         return False
     return (
-        _extract_budget_amount(state, query) is not None
+        _confirms_current_budget_cap(state, query)
+        or _extract_budget_amount(state, query) is not None
         or _selected_estimate_tier(state, query) is not None
     )
 
@@ -438,6 +485,12 @@ def _apply_explicit_budget_update(
     query: str,
     sanitized: dict,
 ) -> dict:
+    if _confirms_current_budget_cap(state, query):
+        previous = state.get("entities") or TravelEntities()
+        sanitized["budget"] = previous.budget
+        sanitized["budget_scope"] = previous.budget_scope
+        sanitized["budget_mode"] = BudgetMode.MINIMIZE
+        return sanitized
     if _is_relative_budget_change(query):
         sanitized.pop("budget", None)
         sanitized.pop("budget_scope", None)
@@ -482,7 +535,19 @@ def _apply_explicit_budget_update(
 def _extract_budget_amount(state: TravelState, query: str) -> Decimal | None:
     if _is_relative_budget_change(query):
         return None
-    number = r"(\d+(?:\.\d+)?|[零〇一二两三四五六七八九十百千万]+)"
+    number_token = r"\d+(?:\.\d+)?|[零〇一二两三四五六七八九十百千万]+"
+    budget_range = re.search(
+        rf"(?:总预算|预算|费用)[^，。；]{{0,8}}?({number_token})\s*(?:元|块)?\s*"
+        rf"(?:到|至|[-~～—])\s*({number_token})\s*(?:元|块)?",
+        query,
+    )
+    if budget_range:
+        return max(
+            _parse_budget_number(budget_range.group(1)),
+            _parse_budget_number(budget_range.group(2)),
+        )
+
+    number = rf"({number_token})"
     separator = r"[^，。；\d零〇一二两三四五六七八九十百千万]"
     patterns = [
         rf"(?:总预算|预算|人均|每人|总共){separator}{{0,8}}{number}",
@@ -504,6 +569,21 @@ def _extract_budget_amount(state: TravelState, query: str) -> Decimal | None:
 
 def _is_relative_budget_change(query: str) -> bool:
     return bool(re.search(r"预算.{0,4}(?:降低|减少|下调|提高|增加|上调)\s*\d", query))
+
+
+def _confirms_current_budget_cap(state: TravelState, query: str) -> bool:
+    previous = state.get("entities") or TravelEntities()
+    if previous.budget is None:
+        return False
+    return bool(
+        re.search(
+            r"(?:我)?(?:就|只)?有这(?:点|些|么多)预算|"
+            r"预算(?:不能|不再|没法|无法)(?:再)?(?:提高|增加|加)|"
+            r"(?:不加|不提高|保持|按当前|就按这个)(?:预算|金额)|"
+            r"预算不变|就这么多(?:钱|预算)|按这(?:点|个)预算",
+            query,
+        )
+    )
 
 
 def _budget_scope_from_query(query: str) -> BudgetScope | None:
@@ -528,7 +608,11 @@ def _requests_budget_estimate(query: str) -> bool:
 
 def _requests_minimum_budget(query: str) -> bool:
     return bool(
-        re.search(r"尽可能少|越少越好|越省越好|最低预算|最省|穷游|能省则省", query)
+        re.search(
+            r"尽可能少|越少越好|越省越好|最低预算|最省|穷游|能省则省|"
+            r"只有这(?:点|些|么多)预算|预算不变|按当前预算",
+            query,
+        )
     )
 
 

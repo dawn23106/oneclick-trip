@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from decimal import Decimal
 
 from app.agents.intent_agent import RuleBasedIntentAgent
 from app.domain.date_resolution import resolve_explicit_dates
@@ -89,3 +90,11 @@ def test_rule_agent_extracts_new_year_date() -> None:
 
     assert decision.entities.start_date == expected_start
     assert decision.entities.days == 3
+
+
+def test_rule_agent_uses_budget_range_upper_limit() -> None:
+    decision = RuleBasedIntentAgent().classify(
+        "从昆明到南昌玩三天，一个人，总预算在1500到2500之间"
+    )
+
+    assert decision.entities.budget == Decimal("2500")

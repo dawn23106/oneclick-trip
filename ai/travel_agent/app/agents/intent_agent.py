@@ -367,8 +367,27 @@ class RuleBasedIntentAgent:
         elif re.search(r"独自(?:出行|旅行|游玩)|一个人(?:出行|旅行|游玩)", text):
             values["people"] = 1
 
-        budget_match = re.search(r"(人均|每人|总预算|预算)\s*(\d+(?:\.\d+)?)\s*(?:元)?", text)
-        if budget_match:
+        budget_range_match = re.search(
+            r"(人均|每人|总预算|预算)[^，。；\d]{0,8}"
+            r"(\d+(?:\.\d+)?)\s*(?:元|块)?\s*(?:到|至|[-~～—])\s*"
+            r"(\d+(?:\.\d+)?)\s*(?:元|块)?",
+            text,
+        )
+        budget_match = re.search(
+            r"(人均|每人|总预算|预算)[^，。；\d]{0,8}(\d+(?:\.\d+)?)\s*(?:元)?",
+            text,
+        )
+        if budget_range_match:
+            values["budget"] = max(
+                Decimal(budget_range_match.group(2)),
+                Decimal(budget_range_match.group(3)),
+            )
+            values["budget_scope"] = (
+                BudgetScope.PER_PERSON
+                if budget_range_match.group(1) in {"人均", "每人"}
+                else BudgetScope.TOTAL
+            )
+        elif budget_match:
             values["budget"] = Decimal(budget_match.group(2))
             values["budget_scope"] = (
                 BudgetScope.PER_PERSON if budget_match.group(1) in {"人均", "每人"} else BudgetScope.TOTAL

@@ -15,7 +15,7 @@ from app.domain.models import (
     TravelEntities,
 )
 from app.graph.builder import build_travel_graph
-from app.graph.nodes.intent_recognition import _sanitize_explicit_update
+from app.graph.nodes.intent_recognition import _entity_base_for_turn, _sanitize_explicit_update
 
 
 def budget_estimate() -> BudgetEstimate:
@@ -89,6 +89,99 @@ def test_budget_amount_phrase_matrix(
     assert patch["budget"] == expected_amount
     assert patch["budget_scope"] is expected_scope
     assert patch["budget_mode"] is BudgetMode.FIXED
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_amount"),
+    [
+        ("我的总预算在1500到2500之间", Decimal("2500")),
+        ("预算 1500-2500 元", Decimal("2500")),
+        ("费用一千五百至两千五百", Decimal("2500")),
+    ],
+)
+def test_budget_range_uses_upper_limit(query: str, expected_amount: Decimal) -> None:
+    patch = _sanitize_explicit_update(pending_state(), query, {})
+
+    assert patch["budget"] == expected_amount
+    assert patch["budget_scope"] is BudgetScope.TOTAL
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "我只有这点预算",
+        "只有这些预算",
+        "预算不能再提高",
+        "总预算不变，按当前预算尽量精简行程",
+    ],
+)
+def test_hard_budget_cap_keeps_existing_amount(query: str) -> None:
+    state = pending_state()
+    state["entities"] = state["entities"].model_copy(
+        update={"budget": Decimal("1500"), "budget_scope": BudgetScope.TOTAL}
+    )
+    patch = _sanitize_explicit_update(
+        state,
+        query,
+        {
+            "destination": "威海",
+            "origin": "成都",
+            "days": 3,
+            "people": 1,
+            "budget": Decimal("1800"),
+        },
+    )
+
+    assert patch["budget"] == Decimal("1500")
+    assert patch["budget_scope"] is BudgetScope.TOTAL
+    assert patch["budget_mode"] is BudgetMode.MINIMIZE
+    assert "destination" not in patch
+    assert "origin" not in patch
+    assert "days" not in patch
+    assert "people" not in patch
+
+
+def test_hard_budget_cap_retains_all_previous_trip_slots() -> None:
+    previous = TravelEntities(
+        destination="南昌",
+        origin="昆明",
+        days=3,
+        people=1,
+        budget=Decimal("1500"),
+        budget_scope=BudgetScope.TOTAL,
+    )
+    state = {
+        "intent": Intent.TRIP_PLAN,
+        "missing_fields": ["budget"],
+        "entities": previous,
+    }
+    query = "我只有这点预算"
+    explicit = _sanitize_explicit_update(
+        state,
+        query,
+        {
+            "destination": "南昌",
+            "origin": "昆明",
+            "days": 3,
+            "people": 1,
+            "budget": Decimal("1800"),
+        },
+    )
+    inherited = _entity_base_for_turn(
+        state,
+        previous,
+        Intent.TRIP_PLAN,
+        query,
+        explicit,
+    )
+    merged = inherited.model_copy(update=explicit)
+
+    assert merged.destination == "南昌"
+    assert merged.origin == "昆明"
+    assert merged.days == 3
+    assert merged.people == 1
+    assert merged.budget == Decimal("1500")
+    assert merged.budget_mode is BudgetMode.MINIMIZE
 
 
 ARABIC_AMOUNT_CASES = [

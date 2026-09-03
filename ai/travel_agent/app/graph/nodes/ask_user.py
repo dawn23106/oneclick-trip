@@ -141,7 +141,7 @@ def _clarification_actions(
     feasibility = state.get("budget_feasibility")
     if feasibility is not None and not feasibility.feasible:
         return (
-            "可以接受建议预算，也可以重新看两档估算",
+            "可以接受建议预算，也可以按当前上限压缩行程",
             [
                 _action(
                     "budget-accept-suggestion",
@@ -149,6 +149,12 @@ def _clarification_actions(
                     f"调到 ¥{feasibility.suggested_budget}",
                     f"总预算调整到{feasibility.suggested_budget}元，继续规划",
                     recommended=True,
+                ),
+                _action(
+                    "budget-keep-cap",
+                    "budget",
+                    "按当前预算压缩",
+                    "总预算不变，按当前预算尽量精简行程",
                 ),
                 _action(
                     "budget-estimate-again",
