@@ -139,7 +139,8 @@ CREATE TABLE IF NOT EXISTS trip_plan (
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_plan_city (city_id),
-  INDEX idx_plan_user (user_id)
+  INDEX idx_plan_user (user_id),
+  INDEX idx_plan_user_active_created (user_id, deleted, create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 行程天表：一个 trip_plan 下面会有多天。
@@ -208,7 +209,9 @@ CREATE TABLE IF NOT EXISTS ai_conversation (
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uk_ai_conversation_id (conversation_id),
-  INDEX idx_ai_conversation_user_update (user_id, update_time)
+  INDEX idx_ai_conversation_user_update (user_id, update_time),
+  INDEX idx_ai_conversation_admin_update (deleted, update_time),
+  INDEX idx_ai_conversation_status_update (status, deleted, update_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- AI 消息表：保存文本和 Agent 结构化状态，供会话恢复与管理端审计。

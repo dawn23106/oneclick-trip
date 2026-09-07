@@ -53,6 +53,12 @@ const routes = [
         meta: { title: 'Agent 运行', icon: 'DataLine' }
       },
       {
+        path: 'database-monitor',
+        name: 'DatabaseMonitor',
+        component: () => import('../views/DatabaseMonitor.vue'),
+        meta: { title: '数据库监控', icon: 'Monitor' }
+      },
+      {
         path: 'cities',
         name: 'CityList',
         component: () => import('../views/CityList.vue'),

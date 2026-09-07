@@ -19,8 +19,15 @@ services:
       - --collation-server=utf8mb4_unicode_ci
       - --max-connections=100
       - --innodb-buffer-pool-size=256M
+      - --performance-schema=ON
+      - --slow-query-log=ON
+      - --slow-query-log-file=/var/lib/mysql/mysql-slow.log
+      - --long-query-time=${MYSQL_SLOW_QUERY_SECONDS:-1}
+      - --log-queries-not-using-indexes=ON
+      - --min-examined-row-limit=${MYSQL_SLOW_QUERY_MIN_ROWS:-100}
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./ops/mysql/init-observability.sh:/docker-entrypoint-initdb.d/20-observability.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 10s
@@ -72,7 +79,7 @@ services:
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
-      MYSQL_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-oneclick_trip}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      MYSQL_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-oneclick_trip}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&connectTimeout=5000&socketTimeout=15000&tcpKeepAlive=true
       MYSQL_USERNAME: ${MYSQL_USERNAME:-oneclick_trip}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       SPRING_SQL_INIT_MODE: never
@@ -83,6 +90,16 @@ services:
       AI_SERVICE_BASE_URL: http://ai:8000
       AI_SERVICE_CONNECT_TIMEOUT: 5s
       AI_SERVICE_READ_TIMEOUT: 180s
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${DB_POOL_MAX_SIZE:-15}
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${DB_POOL_MIN_IDLE:-3}
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: ${DB_POOL_CONNECTION_TIMEOUT_MS:-5000}
+      SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: ${DB_POOL_VALIDATION_TIMEOUT_MS:-3000}
+      SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT: ${DB_POOL_IDLE_TIMEOUT_MS:-600000}
+      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: ${DB_POOL_MAX_LIFETIME_MS:-1800000}
+      SPRING_DATASOURCE_HIKARI_LEAK_DETECTION_THRESHOLD: ${DB_POOL_LEAK_DETECTION_MS:-20000}
+      SPRING_JDBC_TEMPLATE_QUERY_TIMEOUT: ${DB_QUERY_TIMEOUT:-10s}
+      MYBATIS_PLUS_CONFIGURATION_DEFAULT_STATEMENT_TIMEOUT: ${DB_QUERY_TIMEOUT_SECONDS:-10}
+      APP_DATABASE_MONITOR_SLOW_THRESHOLD_MS: ${DB_SLOW_THRESHOLD_MS:-1000}
       JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai -XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=25 -XX:+UseG1GC
     ports:
       - "127.0.0.1:8080:8080"

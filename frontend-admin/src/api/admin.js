@@ -92,6 +92,12 @@ export function fetchAgentRun(id) {
   return request(`${BASE}/agent-runs/${id}`)
 }
 
+// ===== 数据库性能监控 =====
+export function fetchDatabaseMonitor(params = {}) {
+  const query = new URLSearchParams(params).toString()
+  return request(`${BASE}/database-monitor?${query}`)
+}
+
 // ===== 城市管理 =====
 export function fetchCities(params = {}) {
   const query = new URLSearchParams(params).toString()

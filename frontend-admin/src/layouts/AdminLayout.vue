@@ -84,7 +84,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Odometer, User, MapLocation, Picture,
-  Dish, OfficeBuilding, Collection, List, ChatLineRound, DataAnalysis, DataLine, Tickets
+  Dish, OfficeBuilding, Collection, List, ChatLineRound, DataAnalysis, DataLine, Tickets, Monitor
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -107,7 +107,7 @@ const currentPageIcon = computed(() => {
     '仪表盘': '📊', '用户管理': '👥', '城市管理': '🏙️',
     '景点管理': '🏔️', '美食管理': '🍜', '酒店管理': '🏨',
     '行程模板': '⭐', '行程订单': '📋', '预订管理': '🎫', '会话管理': '💬',
-    '知识库更新': 'KB', 'Agent 运行': '📈'
+    '知识库更新': 'KB', 'Agent 运行': '📈', '数据库监控': 'DB'
   }
   return icons[route.meta?.title] || '📊'
 })
@@ -116,7 +116,8 @@ const mainNavItems = [
   { path: '/dashboard', title: '仪表盘', icon: Odometer },
   { path: '/users', title: '用户管理', icon: User },
   { path: '/conversations', title: '会话管理', icon: ChatLineRound },
-  { path: '/agent-runs', title: 'Agent 运行', icon: DataLine }
+  { path: '/agent-runs', title: 'Agent 运行', icon: DataLine },
+  { path: '/database-monitor', title: '数据库监控', icon: Monitor }
 ]
 
 const contentNavItems = [

@@ -9,6 +9,17 @@ spring:
     url: ${MYSQL_URL:jdbc:mysql://127.0.0.1:3306/oneclick_trip?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:root}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:15}
+      minimum-idle: ${DB_POOL_MIN_IDLE:3}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:5000}
+      validation-timeout: ${DB_POOL_VALIDATION_TIMEOUT_MS:3000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT_MS:600000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME_MS:1800000}
+      leak-detection-threshold: ${DB_POOL_LEAK_DETECTION_MS:20000}
+  jdbc:
+    template:
+      query-timeout: ${DB_QUERY_TIMEOUT:10s}
   sql:
     init:
       mode: always
@@ -22,6 +33,7 @@ spring:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+    default-statement-timeout: ${DB_QUERY_TIMEOUT_SECONDS:10}
   global-config:
     db-config:
       id-type: auto
@@ -30,6 +42,8 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 app:
+  database-monitor:
+    slow-threshold-ms: ${DB_SLOW_THRESHOLD_MS:1000}
   cors:
     allowed-origin-patterns: ${APP_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:5173,http://localhost:5174}
   map:
