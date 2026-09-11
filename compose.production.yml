@@ -58,6 +58,76 @@ services:
     logging: *default-logging
     networks: [app]
 
+  redis-replica:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --replicaof redis 6379 --masterauth "$$REDIS_PASSWORD" --requirepass "$$REDIS_PASSWORD"
+    volumes:
+      - redis_replica_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      redis:
+        condition: service_healthy
+    mem_limit: 256m
+    logging: *default-logging
+    networks: [app]
+
+  redis-sentinel-1: &redis-sentinel
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command:
+      - sh
+      - -c
+      - |
+        if [ ! -s /data/sentinel.conf ]; then
+          MASTER_IP="$$(getent hosts redis | awk 'NR==1 { print $$1 }')"
+          printf '%s\n' \
+            'port 26379' \
+            "sentinel monitor oneclick-trip-master $$MASTER_IP 6379 2" \
+            "sentinel auth-pass oneclick-trip-master $$REDIS_PASSWORD" \
+            'sentinel down-after-milliseconds oneclick-trip-master 5000' \
+            'sentinel failover-timeout oneclick-trip-master 30000' \
+            'sentinel parallel-syncs oneclick-trip-master 1' \
+            "requirepass $$REDIS_PASSWORD" > /data/sentinel.conf
+        fi
+        exec redis-sentinel /data/sentinel.conf
+    volumes:
+      - redis_sentinel_1_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -p 26379 -a $$REDIS_PASSWORD ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      redis:
+        condition: service_healthy
+      redis-replica:
+        condition: service_healthy
+    mem_limit: 64m
+    logging: *default-logging
+    networks: [app]
+
+  redis-sentinel-2:
+    <<: *redis-sentinel
+    volumes:
+      - redis_sentinel_2_data:/data
+
+  redis-sentinel-3:
+    <<: *redis-sentinel
+    volumes:
+      - redis_sentinel_3_data:/data
+
   chroma:
     image: chromadb/chroma:1.5.9
     restart: unless-stopped
@@ -121,6 +191,9 @@ services:
       JAVA_BACKEND_BASE_URL: http://backend:8080
       AI_INTERNAL_SERVICE_SECRET: ${AI_INTERNAL_SERVICE_SECRET}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      REDIS_SENTINEL_HOSTS: redis-sentinel-1:26379,redis-sentinel-2:26379,redis-sentinel-3:26379
+      REDIS_SENTINEL_MASTER: oneclick-trip-master
+      REDIS_SENTINEL_PASSWORD: ${REDIS_PASSWORD}
       CHECKPOINT_TTL_MINUTES: ${CHECKPOINT_TTL_MINUTES:-1440}
       CHECKPOINT_REFRESH_ON_READ: "true"
       AGENT_JOB_TTL_MINUTES: ${AGENT_JOB_TTL_MINUTES:-1440}
@@ -139,6 +212,12 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+      redis-sentinel-1:
+        condition: service_healthy
+      redis-sentinel-2:
+        condition: service_healthy
+      redis-sentinel-3:
+        condition: service_healthy
       chroma:
         condition: service_started
     mem_limit: 1280m
@@ -155,4 +234,8 @@ networks:
 volumes:
   mysql_data:
   redis_data:
+  redis_replica_data:
+  redis_sentinel_1_data:
+  redis_sentinel_2_data:
+  redis_sentinel_3_data:
   chroma_data:

@@ -61,6 +61,9 @@ def create_app(
         redis_job_store = RedisAgentJobStore(
             configured_settings.redis_url,
             ttl_minutes=configured_settings.agent_job_ttl_minutes,
+            sentinel_hosts=configured_settings.redis_sentinel_hosts,
+            sentinel_master=configured_settings.redis_sentinel_master,
+            sentinel_password=configured_settings.redis_sentinel_password,
         )
         try:
             redis_job_store.ping()
@@ -75,6 +78,9 @@ def create_app(
             configured_settings.redis_url,
             ttl_minutes=configured_settings.checkpoint_ttl_minutes,
             refresh_on_read=configured_settings.checkpoint_refresh_on_read,
+            sentinel_hosts=configured_settings.redis_sentinel_hosts,
+            sentinel_master=configured_settings.redis_sentinel_master,
+            sentinel_password=configured_settings.redis_sentinel_password,
         )
         try:
             candidate.ping()
@@ -106,6 +112,9 @@ def create_app(
                 configured_settings.java_internal_service_secret,
                 timeout_seconds=configured_settings.tool_http_timeout_seconds,
                 redis_url=configured_settings.redis_url,
+                redis_sentinel_hosts=configured_settings.redis_sentinel_hosts,
+                redis_sentinel_master=configured_settings.redis_sentinel_master,
+                redis_sentinel_password=configured_settings.redis_sentinel_password,
             )
             infrastructure_status["mysql"] = "java-owned"
         elif plan_repository is None and preference_repository is None and configured_settings.mysql_dsn:

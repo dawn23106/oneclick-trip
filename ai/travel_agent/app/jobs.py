@@ -5,6 +5,8 @@ from copy import deepcopy
 from typing import Any, Protocol
 
 import redis
+
+from app.redis_client import create_redis_client
 from fastapi.encoders import jsonable_encoder
 
 
@@ -73,8 +75,22 @@ class InMemoryAgentJobStore:
 
 class RedisAgentJobStore:
     """生产模式作业存储，通过 Redis NX 锁保证单会话只有一个活跃任务。"""
-    def __init__(self, redis_url: str, *, ttl_minutes: int = 1440) -> None:
-        self._redis = redis.Redis.from_url(redis_url, decode_responses=True)
+    def __init__(
+        self,
+        redis_url: str,
+        *,
+        ttl_minutes: int = 1440,
+        sentinel_hosts: tuple[tuple[str, int], ...] = (),
+        sentinel_master: str = "oneclick-trip-master",
+        sentinel_password: str | None = None,
+    ) -> None:
+        self._redis = create_redis_client(
+            redis_url,
+            sentinel_hosts=sentinel_hosts,
+            sentinel_master=sentinel_master,
+            sentinel_password=sentinel_password,
+            decode_responses=True,
+        )
         self._ttl_seconds = max(ttl_minutes, 1) * 60
         self._prefix = "oneclick-trip:agent-job"
 

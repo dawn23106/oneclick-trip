@@ -21,6 +21,8 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from redis import Redis
 
+from app.redis_client import create_redis_client
+
 from app.domain import models as domain_models
 
 
@@ -54,9 +56,18 @@ class PlainRedisSaver(BaseCheckpointSaver):
         *,
         ttl_minutes: int = 1440,
         refresh_on_read: bool = True,
+        sentinel_hosts: tuple[tuple[str, int], ...] = (),
+        sentinel_master: str = "oneclick-trip-master",
+        sentinel_password: str | None = None,
     ) -> None:
         super().__init__(serde=_domain_checkpoint_serializer())
-        self._redis = Redis.from_url(redis_url, decode_responses=False)
+        self._redis = create_redis_client(
+            redis_url,
+            sentinel_hosts=sentinel_hosts,
+            sentinel_master=sentinel_master,
+            sentinel_password=sentinel_password,
+            decode_responses=False,
+        )
         self._ttl_seconds = max(ttl_minutes, 1) * 60
         self._refresh_on_read = refresh_on_read
         self._root = "oneclick:langgraph"
@@ -314,11 +325,17 @@ class PlainRedisCheckpointBackend:
         *,
         ttl_minutes: int = 1440,
         refresh_on_read: bool = True,
+        sentinel_hosts: tuple[tuple[str, int], ...] = (),
+        sentinel_master: str = "oneclick-trip-master",
+        sentinel_password: str | None = None,
     ) -> None:
         self._saver = PlainRedisSaver(
             url,
             ttl_minutes=ttl_minutes,
             refresh_on_read=refresh_on_read,
+            sentinel_hosts=sentinel_hosts,
+            sentinel_master=sentinel_master,
+            sentinel_password=sentinel_password,
         )
 
     def create(self) -> BaseCheckpointSaver:

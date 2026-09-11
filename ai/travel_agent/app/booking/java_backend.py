@@ -5,6 +5,8 @@ import hashlib
 import httpx
 import redis
 
+from app.redis_client import create_redis_client
+
 from app.booking.contracts import BookingBackendError
 from app.domain.models import BookingDraft
 
@@ -20,6 +22,9 @@ class JavaBookingBackend:
         *,
         timeout_seconds: float = 10.0,
         redis_url: str | None = None,
+        redis_sentinel_hosts: tuple[tuple[str, int], ...] = (),
+        redis_sentinel_master: str = "oneclick-trip-master",
+        redis_sentinel_password: str | None = None,
     ) -> None:
         self._client = httpx.Client(
             base_url=base_url.rstrip("/"),
@@ -30,7 +35,13 @@ class JavaBookingBackend:
         self._confirmation_tokens: dict[str, str] = {}
         self._redis: redis.Redis | None = None
         if redis_url:
-            candidate = redis.Redis.from_url(redis_url, decode_responses=True)
+            candidate = create_redis_client(
+                redis_url,
+                sentinel_hosts=redis_sentinel_hosts,
+                sentinel_master=redis_sentinel_master,
+                sentinel_password=redis_sentinel_password,
+                decode_responses=True,
+            )
             try:
                 candidate.ping()
                 self._redis = candidate

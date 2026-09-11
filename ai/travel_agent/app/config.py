@@ -26,6 +26,9 @@ class Settings:
     business_backend: str
     java_backend_base_url: str
     java_internal_service_secret: str
+    redis_sentinel_hosts: tuple[tuple[str, int], ...] = ()
+    redis_sentinel_master: str = "oneclick-trip-master"
+    redis_sentinel_password: str | None = None
     checkpoint_ttl_minutes: int = 1440
     checkpoint_refresh_on_read: bool = True
     agent_job_ttl_minutes: int = 1440
@@ -61,6 +64,8 @@ class Settings:
 
 
 def load_settings(env_file: Path | None = None) -> Settings:
+    from app.redis_client import parse_sentinel_hosts
+
     load_dotenv(env_file or PROJECT_ROOT / ".env", override=False)
     raw_chroma_path = Path(os.getenv("CHROMA_PERSIST_DIRECTORY", ".data/chroma"))
     chroma_path = raw_chroma_path if raw_chroma_path.is_absolute() else PROJECT_ROOT / raw_chroma_path
@@ -73,6 +78,11 @@ def load_settings(env_file: Path | None = None) -> Settings:
         infra_mode=os.getenv("INFRA_MODE", "memory").lower(),
         mysql_dsn=os.getenv("MYSQL_DSN"),
         redis_url=os.getenv("REDIS_URL"),
+        redis_sentinel_hosts=parse_sentinel_hosts(os.getenv("REDIS_SENTINEL_HOSTS")),
+        redis_sentinel_master=os.getenv(
+            "REDIS_SENTINEL_MASTER", "oneclick-trip-master"
+        ),
+        redis_sentinel_password=os.getenv("REDIS_SENTINEL_PASSWORD") or None,
         checkpoint_ttl_minutes=max(
             1, int(os.getenv("CHECKPOINT_TTL_MINUTES", "1440"))
         ),
